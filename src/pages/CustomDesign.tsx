@@ -369,13 +369,13 @@ export default function CustomDesign() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-4 max-w-7xl">
       <Helmet>
         <title>Custom T-Shirt Design - AI Generated</title>
       </Helmet>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="flex flex-col space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="flex flex-col space-y-3">
           <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
             <img
               src={getColorAdjustedImage(tshirtViews[viewMode], color)}
@@ -544,7 +544,7 @@ export default function CustomDesign() {
           </div>
 
           {/* View mode thumbnails */}
-          <div className="flex justify-center space-x-4">
+          <div className="flex justify-center space-x-3">
             {Object.entries(tshirtViews).map(([view, url]) => (
               <button
                 key={view}
@@ -563,7 +563,7 @@ export default function CustomDesign() {
           </div>
         </div>
 
-        <div className="flex flex-col space-y-6 sticky top-4">
+        <div className="flex flex-col space-y-4 sticky top-4">
           <div className="flex flex-col md:flex-row">
             <div className="flex-1">
               <h1 className="text-3xl font-bold mb-2">Customize Your T-Shirt</h1>
@@ -571,22 +571,22 @@ export default function CustomDesign() {
           </div>
 
           {/* 1. Color Picker */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Select Color</h3>
+          <div className="mb-4">
+            <h3 className="text-sm font-medium mb-1">Select Color</h3>
             <ColorPicker color={color} onChange={setColor} />
           </div>
 
           {/* 2. Size Selector */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Select Size</h3>
+          <div className="mb-4">
+            <h3 className="text-sm font-medium mb-1">Select Size</h3>
             <SizeSelector size={size} onChange={setSize} />
           </div>
 
           {/* 3. Details Section */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Product Details</h3>
-            <div className="bg-gray-50 p-3 rounded-lg text-sm">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <div className="mb-4">
+            <h3 className="text-sm font-medium mb-1">Product Details</h3>
+            <div className="bg-gray-50 p-2 rounded-lg text-sm">
+              <div className="grid grid-cols-2 gap-x-4">
                 <div>• 100% Premium Cotton</div>
                 <div>• Pre-shrunk fabric</div>
                 <div>• Classic fit</div>
@@ -596,31 +596,31 @@ export default function CustomDesign() {
           </div>
 
           {/* 4. Design Generator */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Generate Design</h3>
+          <div className="mb-4">
+            <h3 className="text-sm font-medium mb-1">Generate Design</h3>
             <PromptInput onGenerate={handleGenerateDesign} isGenerating={isGenerating} />
           </div>
 
           {/* 5. Design Controls (Crop & Background) */}
           {designTexture && (
-            <div className="mb-6">
+            <div className="mb-4">
               <div className="flex space-x-2">
                 <button
                   onClick={() => setIsCropping(!isCropping)}
-                  className="flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                  className="flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                 >
-                  <Crop className="w-4 h-4 mr-2" />
+                  <Crop className="w-4 h-4 mr-1" />
                   {isCropping ? 'Cancel Crop' : 'Crop Design'}
                 </button>
                 <button
                   onClick={handleBackgroundToggle}
                   disabled={isLoading}
-                  className={`flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={designTransform.hasBackground ? "Remove background from design" : "Background already removed"}
                 >
                   {isLoading ? (
                     <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
@@ -628,7 +628,7 @@ export default function CustomDesign() {
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
                         <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
@@ -641,15 +641,15 @@ export default function CustomDesign() {
           )}
 
           {/* 6. Add to Cart Button */}
-          <div className="mt-8">
+          <div className="mt-4">
             <button
               onClick={handleAddToCart}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
               disabled={!designTexture || isGenerating}
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="animate-spin" size={20} />
                   Processing...
                 </>
               ) : (
@@ -670,33 +670,13 @@ export default function CustomDesign() {
               )}
             </button>
             {error && (
-              <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+              <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </p>
             )}
           </div>
         </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 p-4 rounded-lg">
-            <div className="flex items-center space-x-2 text-red-500">
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {isGenerating && (
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="flex items-center space-x-2 text-blue-500">
-              <Loader2 className="animate-spin" size={20} />
-              <span>Generating your design...</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
