@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Set
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile, Response, BackgroundTasks
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile, Response, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,8 @@ from server.utils import serialize_datetime
 import io
 from PIL import Image
 from rembg import remove
+import cv2
+import numpy as np
 
 # Get the application root directory
 ROOT_DIR = Path(__file__).parent.parent.resolve()
@@ -293,6 +295,83 @@ async def remove_background(file: UploadFile = File(...)):
             }
         )
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/color_transparency")
+async def color_transparency(
+    file: UploadFile = File(...),
+    color: str = Form(...),
+    tolerance: float = Form(0.5)
+):
+    try:
+        logger.info(f"Received color transparency request: color={color}, tolerance={tolerance}")
+        
+        # Read the image
+        contents = await file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+        
+        if img is None:
+            raise HTTPException(status_code=400, detail="Failed to decode image")
+            
+        if len(img.shape) < 3:
+            raise HTTPException(status_code=400, detail="Image must be in color format")
+        
+        if color is None or not color:
+            raise HTTPException(status_code=400, detail="Color parameter is required")
+            
+        # Convert BGR to RGB
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        # Ensure color is in correct hex format (without #)
+        if len(color) != 6:
+            raise HTTPException(status_code=400, detail="Invalid color format. Must be a 6-digit hex color without # (e.g., FF0000)")
+            
+        try:
+            r = int(color[0:2], 16)
+            g = int(color[2:4], 16)
+            b = int(color[4:6], 16)
+            target_color = np.array([r, g, b])
+            logger.info(f"Target color RGB: {target_color}")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid color format. Must be a valid hex color without # (e.g., FF0000)")
+        
+        # Create alpha channel based on color similarity
+        height, width = img_rgb.shape[:2]
+        alpha = np.ones((height, width), dtype=np.uint8) * 255
+        
+        # Calculate color difference and create mask
+        color_diff = np.sqrt(np.sum((img_rgb - target_color) ** 2, axis=2))
+        max_diff = 255 * np.sqrt(3)  # Maximum possible difference
+        similarity = 1 - (color_diff / max_diff)
+        mask = similarity > (1 - tolerance)
+        
+        logger.info(f"Applying transparency with tolerance: {tolerance}")
+        
+        # Apply transparency
+        alpha[mask] = 0
+        
+        # Convert to RGBA
+        img_rgba = np.dstack((img_rgb, alpha))
+        
+        # Convert to PIL Image and save to BytesIO
+        pil_img = Image.fromarray(img_rgba)
+        img_byte_arr = io.BytesIO()
+        pil_img.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        logger.info("Successfully processed image")
+        return StreamingResponse(
+            img_byte_arr, 
+            media_type="image/png",
+            headers={
+                "Content-Disposition": "inline",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Crop, AlertCircle, Loader2, Undo2 } from 'lucide-react';
 import { Scene } from '../components/TShirtCustomizer/Scene';
@@ -9,6 +9,7 @@ import Draggable from 'react-draggable';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../services/backgroundRemoval';
+import { debounce } from 'lodash';
 
 interface DesignResponse {
   task_id: string;
@@ -21,13 +22,14 @@ interface DesignResponse {
 }
 
 interface DesignTransform {
+  hasBackground: boolean;
+  texture: string | null;
   width: number;
   height: number;
   rotation: number;
   scale: number;
   originalWidth: number;
   originalHeight: number;
-  hasBackground: boolean;
 }
 
 // API URL configuration
@@ -44,19 +46,29 @@ export default function CustomDesign() {
   const [color, setColor] = useState('#ffffff');
   const [size, setSize] = useState('M');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
   const [designTexture, setDesignTexture] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>('#fef900');
+  const [transparency, setTransparency] = useState(50);
+  const [isPickingColor, setIsPickingColor] = useState(false);
+  const [designTransform, setDesignTransform] = useState<DesignTransform>({
+    hasBackground: true,
+    texture: null,
+    width: 200,
+    height: 200,
+    rotation: 0,
+    scale: 1,
+    originalWidth: 200,
+    originalHeight: 200,
+  });
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
   const [designHistory, setDesignHistory] = useState<string[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [error, setError] = useState('');
   const [taskId, setTaskId] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [viewMode, setViewMode] = useState('hanging');
-  const [isCropping, setIsCropping] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [transparency, setTransparency] = useState(100);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [isPickingColor, setIsPickingColor] = useState(false);
   const [crop, setCrop] = useState<CropType>({
     unit: '%',
     x: 0,
@@ -64,17 +76,7 @@ export default function CustomDesign() {
     width: 100,
     height: 100
   });
-  const [designTransform, setDesignTransform] = useState<DesignTransform>({
-    width: 200,
-    height: 200,
-    rotation: 0,
-    scale: 1,
-    originalWidth: 200,
-    originalHeight: 200,
-    hasBackground: true
-  });
-  const [isResizing, setIsResizing] = useState(false);
-  
+
   const designRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const nodeRef = useRef(null); // Add this ref for Draggable
@@ -371,47 +373,100 @@ export default function CustomDesign() {
     alert('Added to cart successfully!');
   };
 
-  const handleColorPick = (event: React.MouseEvent<HTMLImageElement>) => {
-    if (!isPickingColor) return;
+  const handleColorPick = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!isPickingColor || !designRef.current) return;
 
-    const img = event.currentTarget;
+    const rect = designRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
     if (!ctx) return;
 
+    const img = e.target as HTMLImageElement;
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     ctx.drawImage(img, 0, 0);
 
-    const rect = img.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
     const scaleX = img.naturalWidth / rect.width;
     const scaleY = img.naturalHeight / rect.height;
 
     const pixel = ctx.getImageData(x * scaleX, y * scaleY, 1, 1).data;
-    const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+    // Ensure each color component is padded to 2 digits
+    const hexColor = '#' + [pixel[0], pixel[1], pixel[2]]
+      .map(x => x.toString(16).padStart(2, '0'))
+      .join('');
     
-    setSelectedColor(color);
+    setSelectedColor(hexColor);
     setIsPickingColor(false);
+    // Trigger transparency update with new color
+    debouncedTransparencyChange(transparency);
+  };
+
+  // Debounce the transparency change
+  const debouncedTransparencyChange = useCallback(
+    debounce(async (newTransparency: number) => {
+      if (!selectedColor) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Convert the color to hex without #
+        const colorHex = selectedColor.replace('#', '');
+        
+        const formData = new FormData();
+        if (designTexture) {
+          const response = await fetch(designTexture);
+          const blob = await response.blob();
+          formData.append('file', blob);
+        }
+        formData.append('color', colorHex);
+        formData.append('tolerance', (newTransparency / 100).toString());
+
+        const result = await fetch('http://localhost:8000/color_transparency', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!result.ok) {
+          throw new Error(`Failed to apply transparency: ${result.statusText}`);
+        }
+
+        const imageBlob = await result.blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+        setDesignTexture(imageUrl);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to apply transparency');
+        console.error('Error applying transparency:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300),
+    [designTexture, selectedColor]
+  );
+
+  const handleTransparencyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newTransparency = parseInt(event.target.value);
+    setTransparency(newTransparency);
+    debouncedTransparencyChange(newTransparency);
   };
 
   const handleReset = () => {
-    setTransparency(100);
-    setSelectedColor(null);
+    setSelectedColor('#fef900');
+    setTransparency(50);
     setIsPickingColor(false);
-    if (!designTransform.hasBackground) {
-      handleBackgroundToggle();
+    if (designTexture) {
+      debouncedTransparencyChange(50);
     }
   };
 
   const handleImageReset = () => {
     if (designTexture) {
       // Reset all states without removing the image
-      setTransparency(100);
-      setSelectedColor(null);
+      setTransparency(50);
+      setSelectedColor('#fef900');
       setIsPickingColor(false);
       
       // Reset design transform without triggering loading state
@@ -527,7 +582,6 @@ export default function CustomDesign() {
                         height: '100%',
                         transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
                         transition: 'transform 0.1s ease',
-                        opacity: !designTransform.hasBackground ? transparency / 100 : 1
                       }}
                       className="cursor-move relative"
                       ref={designRef}
@@ -536,9 +590,6 @@ export default function CustomDesign() {
                         src={designTexture}
                         alt="Design"
                         className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                        style={selectedColor ? {
-                          filter: `opacity(${transparency}%) saturate(0) brightness(1.2)`
-                        } : undefined}
                         onClick={handleColorPick}
                       />
 
@@ -664,126 +715,131 @@ export default function CustomDesign() {
           </div>
 
           {/* 5. Design Controls (Crop & Background) */}
-          {designTexture && (
-            <div className="mb-4">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setIsCropping(!isCropping)}
-                  className="flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                >
-                  <Crop className="w-4 h-4 mr-1" />
-                  {isCropping ? 'Cancel Crop' : 'Crop Design'}
-                </button>
-                <button
-                  onClick={handleBackgroundToggle}
-                  disabled={isLoading}
-                  className={`flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={designTransform.hasBackground ? "Remove background from design" : "Background already removed"}
-                >
-                  {isLoading ? (
-                    <>
+          <div className="space-y-4">
+            {designTexture && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsCropping(!isCropping)}
+                    className="flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap"
+                  >
+                    <Crop className="w-4 h-4 mr-1" />
+                    {isCropping ? 'Cancel Crop' : 'Crop Design'}
+                  </button>
+                  <button
+                    onClick={handleBackgroundToggle}
+                    disabled={isLoading}
+                    className={`flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={designTransform.hasBackground ? "Remove background from design" : "Background already removed"}
+                  >
+                    {isLoading ? (
                       <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
                         <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
-                      {designTransform.hasBackground ? "Remove Background" : "No Background"}
-                    </>
-                  )}
-                </button>
-                <div className="flex items-center space-x-1 bg-blue-100 rounded px-2 py-1.5">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={transparency}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      setTransparency(value);
-                    }}
-                    className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      WebkitAppearance: 'none',
-                      appearance: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={() => setIsPickingColor(!isPickingColor)}
-                    className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'}`}
-                    title="Pick color for transparency"
-                  >
-                    <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M7 7h10v10H7z" />
-                      <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    )}
+                    {designTransform.hasBackground ? "Remove Background" : "No Background"}
                   </button>
-                  {selectedColor && (
-                    <div 
-                      className="ml-2 w-4 h-4 rounded border border-gray-300"
-                      style={{ backgroundColor: selectedColor }}
+                  <div className="flex items-center bg-blue-100 rounded h-[34px] px-2 py-1.5">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={transparency}
+                      onChange={handleTransparencyChange}
+                      disabled={isLoading || !selectedColor}
+                      className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        WebkitAppearance: 'none',
+                        appearance: 'none',
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: '9999px',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
                     />
-                  )}
-                </div>
-                <div className="bg-blue-100 rounded">
+                    <button
+                      onClick={() => setIsPickingColor(!isPickingColor)}
+                      disabled={isLoading}
+                      className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title="Pick color for transparency"
+                    >
+                      {isLoading ? (
+                        <svg className="animate-spin w-4 h-4 text-blue-700" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M7 7h10v10H7z" />
+                          <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </button>
+                    {selectedColor && (
+                      <div 
+                        className="ml-2 w-4 h-4 rounded border border-gray-300"
+                        style={{ backgroundColor: selectedColor }}
+                      />
+                    )}
+                    <div className="ml-2 text-sm text-gray-600">
+                      {transparency}%
+                    </div>
+                  </div>
                   <button
-                    onClick={handleImageReset}
-                    className="flex items-center px-2 py-1.5 text-blue-700 hover:bg-blue-200 rounded h-[34px]"
-                    title="Reload current image"
+                    onClick={handleReset}
+                    className="flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap"
+                    title="Reset transparency"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="ml-1">Reset</span>
+                    <Undo2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* 6. Add to Cart Button */}
-          <div className="mt-4">
-            <button
-              onClick={handleAddToCart}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
-              disabled={!designTexture || isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <svg 
-                    className="w-5 h-5" 
-                    fill="none" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth="2" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
-                    <path d="M19 12H5" />
-                    <path d="M15 16l4-4-4-4" />
-                  </svg>
-                  Add to Cart
-                </>
-              )}
-            </button>
-            {error && (
-              <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {error}
-              </p>
             )}
+
+            {/* Add to Cart Button */}
+            <div>
+              <button
+                onClick={handleAddToCart}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+                disabled={!designTexture || isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg 
+                      className="w-5 h-5" 
+                      fill="none" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth="2" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
+                      <path d="M19 12H5" />
+                      <path d="M15 16l4-4-4-4" />
+                    </svg>
+                    Add to Cart
+                  </>
+                )}
+              </button>
+              {error && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
