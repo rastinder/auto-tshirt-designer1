@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 import uuid
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple, Any
 import aiohttp
 import asyncio
 import os
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 class TaskQueue:
     def __init__(self):
-        self.tasks: Dict[str, Task] = {}
-        self.pending_tasks: List[Task] = []
-        self.processing_tasks: Dict[str, Task] = {}
+        self.tasks = {}  # type: Dict[str, Task]
+        self.pending_tasks = []  # type: List[Task]
+        self.processing_tasks = {}  # type: Dict[str, Task]
         self.task_timeout = 300  # 5 minutes
         self.api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
         self.api_headers = {"Authorization": "Bearer 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"}
@@ -30,7 +30,7 @@ class TaskQueue:
         
         logger.info(f"Outputs directory: {self.outputs_dir}")
 
-    async def save_image(self, image_data: bytes, task_id: str) -> tuple[str, str]:
+    async def save_image(self, image_data: bytes, task_id: str) -> Tuple[str, str]:
         """Save image data to a file and return the filename and base64 data"""
         filename = f"{task_id}.png"
         filepath = self.outputs_dir / filename
