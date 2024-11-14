@@ -1,0 +1,17 @@
+# Main server requirements
+fastapi==0.104.0
+uvicorn==0.24.0
+websockets==11.0.3
+python-dotenv==1.0.0
+pydantic==2.4.0
+httpx==0.25.0
+python-multipart==0.0.6
+aiofiles==23.2.1
+pillow==10.0.0
+requests==2.31.0
+zeroconf==0.131.0
+aiozeroconf==0.1.8
+
+# Testing dependencies
+pytest==7.4.3
+pytest-asyncio==0.23.2

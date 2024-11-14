@@ -1,0 +1,7 @@
+50 50# Worker dependencies
+torch
+websockets
+python-dotenv
+numpy
+opencv-python
+stable_diffusion_cpp_python @ file:///d:/projects/shirtwebsite/auto-tshirt-designer1/stable-diffusion-cpp-python/
