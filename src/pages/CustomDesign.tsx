@@ -346,6 +346,28 @@ export default function CustomDesign() {
     setDesignTexture(newDesign);
   };
 
+  const handleAddToCart = () => {
+    if (!designTexture) {
+      setError('Please create a design first');
+      return;
+    }
+    
+    // Here you can add the logic to add the item to cart
+    // For example, save the current design, color, and size
+    const cartItem = {
+      design: designTexture,
+      color: color,
+      size: size,
+      timestamp: new Date().toISOString()
+    };
+
+    // You can dispatch this to your cart state management
+    console.log('Adding to cart:', cartItem);
+    
+    // Show success message
+    alert('Added to cart successfully!');
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <Helmet>
@@ -542,18 +564,47 @@ export default function CustomDesign() {
         </div>
 
         <div className="flex flex-col space-y-6 sticky top-4">
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex flex-col md:flex-row">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-4">Customize Your T-Shirt</h1>
-              <div className="flex items-center gap-4 mb-6">
+              <h1 className="text-3xl font-bold mb-2">Customize Your T-Shirt</h1>
+            </div>
+          </div>
+
+          {/* 1. Color Picker */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium mb-2">Select Color</h3>
+            <ColorPicker color={color} onChange={setColor} />
+          </div>
+
+          {/* 2. Size Selector */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium mb-2">Select Size</h3>
+            <SizeSelector size={size} onChange={setSize} />
+          </div>
+
+          {/* 3. Details Section */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium mb-2">Product Details</h3>
+            <div className="bg-gray-50 p-3 rounded-lg text-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div>• 100% Premium Cotton</div>
+                <div>• Pre-shrunk fabric</div>
+                <div>• Classic fit</div>
+                <div>• Double-needle hem</div>
               </div>
             </div>
           </div>
 
-          {/* Design Controls */}
+          {/* 4. Design Generator */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium mb-2">Generate Design</h3>
+            <PromptInput onGenerate={handleGenerateDesign} isGenerating={isGenerating} />
+          </div>
+
+          {/* 5. Design Controls (Crop & Background) */}
           {designTexture && (
             <div className="mb-6">
-              <div className="flex space-x-2 mb-4">
+              <div className="flex space-x-2">
                 <button
                   onClick={() => setIsCropping(!isCropping)}
                   className="flex items-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
@@ -589,22 +640,41 @@ export default function CustomDesign() {
             </div>
           )}
 
-          {/* Color Picker */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Select Color</h3>
-            <ColorPicker color={color} onChange={setColor} />
-          </div>
-
-          {/* Size Selector */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Select Size</h3>
-            <SizeSelector size={size} onChange={setSize} />
-          </div>
-
-          {/* Design Generator */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">Generate Design</h3>
-            <PromptInput onGenerate={handleGenerateDesign} isGenerating={isGenerating} />
+          {/* 6. Add to Cart Button */}
+          <div className="mt-8">
+            <button
+              onClick={handleAddToCart}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+              disabled={!designTexture || isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <svg 
+                    className="w-5 h-5" 
+                    fill="none" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Add to Cart
+                </>
+              )}
+            </button>
+            {error && (
+              <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </p>
+            )}
           </div>
         </div>
 
