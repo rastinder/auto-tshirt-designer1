@@ -690,10 +690,9 @@ export default function CustomDesign() {
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M19 12H5" />
-                        <path d="M15 16l4-4-4-4" />
+                        <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                       {designTransform.hasBackground ? "Remove Background" : "No Background"}
                     </>
@@ -709,7 +708,7 @@ export default function CustomDesign() {
                       const value = parseInt(e.target.value);
                       setTransparency(value);
                     }}
-                    className="w-24 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     style={{
                       WebkitAppearance: 'none',
                       appearance: 'none'
@@ -731,25 +730,17 @@ export default function CustomDesign() {
                       style={{ backgroundColor: selectedColor }}
                     />
                   )}
-                  <button
-                    onClick={handleReset}
-                    className="ml-2 p-1 rounded hover:bg-blue-200"
-                    title="Reset transparency and background"
-                  >
-                    <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
-                      <path d="M19 12H5" />
-                      <path d="M15 16l4-4-4-4" />
-                    </svg>
-                  </button>
+                </div>
+                <div className="bg-blue-100 rounded">
                   <button
                     onClick={handleImageReset}
-                    className="flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    className="flex items-center px-2 py-1.5 text-blue-700 hover:bg-blue-200 rounded h-[34px]"
                     title="Reload current image"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
+                    <span className="ml-1">Reset</span>
                   </button>
                 </div>
               </div>
