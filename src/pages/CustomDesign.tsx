@@ -347,14 +347,14 @@ export default function CustomDesign() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <Helmet>
         <title>Custom T-Shirt Design - AI Generated</title>
       </Helmet>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <div className="flex flex-col space-y-4">
-          <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg scale-80">
+          <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
             <img
               src={getColorAdjustedImage(tshirtViews[viewMode], color)}
               alt={`T-shirt ${viewMode} view`}
@@ -539,26 +539,9 @@ export default function CustomDesign() {
               </button>
             ))}
           </div>
-
-          {/* Add a horizontal gallery below the view thumbnails */}
-          <div className="flex justify-start space-x-2 px-2 overflow-x-auto">
-            {previousDesigns.map((design, index) => (
-              <button
-                key={index}
-                onClick={() => updateDesignWithHistory(design)}
-                className="flex-shrink-0 w-14 h-14 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-md transition-transform hover:scale-105 focus:outline-none focus:border-blue-500"
-              >
-                <img
-                  src={design}
-                  alt={`Previous design ${index + 1}`}
-                  className="w-full h-full object-contain"
-                />
-              </button>
-            ))}
-          </div>
         </div>
 
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-6 sticky top-4">
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex-1">
               <h1 className="text-3xl font-bold mb-4">Customize Your T-Shirt</h1>
@@ -602,24 +585,6 @@ export default function CustomDesign() {
                     </>
                   )}
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Previous Designs */}
-          {previousDesigns.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium mb-2">Previous Designs</h3>
-              <div className="flex flex-wrap gap-2">
-                {previousDesigns.map((design, index) => (
-                  <button
-                    key={index}
-                    onClick={() => updateDesignWithHistory(design)}
-                    className="w-16 h-16 rounded border-2 border-gray-200 hover:border-blue-500 overflow-hidden"
-                  >
-                    <img src={design} alt={`Previous design ${index + 1}`} className="w-full h-full object-contain" />
-                  </button>
-                ))}
               </div>
             </div>
           )}
