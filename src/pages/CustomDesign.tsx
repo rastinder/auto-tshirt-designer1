@@ -499,6 +499,38 @@ export default function CustomDesign() {
               <Draggable 
                 bounds="parent"
                 nodeRef={nodeRef}
+                onStart={(e, data) => {
+                  if (e.type === 'mousedown' && nodeRef.current) {
+                    // Get mouse position relative to element
+                    const rect = nodeRef.current.getBoundingClientRect();
+                    const offsetX = e.clientX - rect.left;
+                    const offsetY = e.clientY - rect.top;
+                    
+                    // Set initial position immediately
+                    nodeRef.current.style.transform = `translate(${e.clientX - offsetX}px, ${e.clientY - offsetY}px)`;
+                    return true;
+                  }
+                  return false;
+                }}
+                onDrag={(e, data) => {
+                  if (e.type === 'mousemove' && e.buttons === 1 && nodeRef.current) {
+                    nodeRef.current.style.transform = `translate(${data.x}px, ${data.y}px)`;
+                  }
+                }}
+                onStop={(e, data) => {
+                  if (nodeRef.current) {
+                    nodeRef.current.style.transform = `translate(${data.x}px, ${data.y}px)`;
+                    // Prevent any residual movement
+                    nodeRef.current.style.pointerEvents = 'none';
+                    setTimeout(() => {
+                      if (nodeRef.current) {
+                        nodeRef.current.style.pointerEvents = 'auto';
+                      }
+                    }, 0);
+                  }
+                }}
+                defaultPosition={{x: 0, y: 0}}
+                position={undefined}
               >
                 <div ref={nodeRef} className="absolute top-1/4 left-1/4 cursor-move">
                   <div 
