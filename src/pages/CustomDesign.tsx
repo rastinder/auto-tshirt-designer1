@@ -53,6 +53,10 @@ export default function CustomDesign() {
   const [retryCount, setRetryCount] = useState(0);
   const [viewMode, setViewMode] = useState('hanging');
   const [isCropping, setIsCropping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [transparency, setTransparency] = useState(100);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [isPickingColor, setIsPickingColor] = useState(false);
   const [crop, setCrop] = useState<CropType>({
     unit: '%',
     x: 0,
@@ -70,7 +74,6 @@ export default function CustomDesign() {
     hasBackground: true
   });
   const [isResizing, setIsResizing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   
   const designRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -368,6 +371,33 @@ export default function CustomDesign() {
     alert('Added to cart successfully!');
   };
 
+  const handleColorPick = (event: React.MouseEvent<HTMLImageElement>) => {
+    if (!isPickingColor) return;
+
+    const img = event.currentTarget;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const rect = img.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+
+    const pixel = ctx.getImageData(x * scaleX, y * scaleY, 1, 1).data;
+    const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+    
+    setSelectedColor(color);
+    setIsPickingColor(false);
+  };
+
   return (
     <div className="container mx-auto px-4 py-4 max-w-7xl">
       <Helmet>
@@ -469,15 +499,20 @@ export default function CustomDesign() {
                         width: '100%',
                         height: '100%',
                         transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
-                        transition: 'transform 0.1s ease'
+                        transition: 'transform 0.1s ease',
+                        opacity: !designTransform.hasBackground ? transparency / 100 : 1
                       }}
                       className="cursor-move relative"
+                      ref={designRef}
                     >
                       <img
                         src={designTexture}
                         alt="Design"
-                        className="w-full h-full object-contain"
-                        style={{ pointerEvents: 'none' }}
+                        className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                        style={selectedColor ? {
+                          filter: `opacity(${transparency}%) saturate(0) brightness(1.2)`
+                        } : undefined}
+                        onClick={handleColorPick}
                       />
 
                       {/* Resize controls */}
@@ -604,7 +639,7 @@ export default function CustomDesign() {
           {/* 5. Design Controls (Crop & Background) */}
           {designTexture && (
             <div className="mb-4">
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setIsCropping(!isCropping)}
                   className="flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
@@ -636,6 +671,39 @@ export default function CustomDesign() {
                     </>
                   )}
                 </button>
+                <div className="flex items-center space-x-1 bg-blue-100 rounded px-2 py-1.5">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={transparency}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      setTransparency(value);
+                    }}
+                    className="w-24 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      WebkitAppearance: 'none',
+                      appearance: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => setIsPickingColor(!isPickingColor)}
+                    className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'}`}
+                    title="Pick color for transparency"
+                  >
+                    <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M7 7h10v10H7z" />
+                      <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                  {selectedColor && (
+                    <div 
+                      className="ml-2 w-4 h-4 rounded border border-gray-300"
+                      style={{ backgroundColor: selectedColor }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}
