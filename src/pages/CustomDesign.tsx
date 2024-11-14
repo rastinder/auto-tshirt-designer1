@@ -398,6 +398,33 @@ export default function CustomDesign() {
     setIsPickingColor(false);
   };
 
+  const handleReset = () => {
+    setTransparency(100);
+    setSelectedColor(null);
+    setIsPickingColor(false);
+    if (!designTransform.hasBackground) {
+      handleBackgroundToggle();
+    }
+  };
+
+  const handleImageReset = () => {
+    if (designTexture) {
+      // Reset all states without removing the image
+      setTransparency(100);
+      setSelectedColor(null);
+      setIsPickingColor(false);
+      
+      // Reset design transform without triggering loading state
+      setDesignTransform({
+        ...designTransform,
+        hasBackground: true,
+        scale: 1,
+        rotation: 0,
+        position: { x: 0, y: 0 }
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-4 max-w-7xl">
       <Helmet>
@@ -663,9 +690,10 @@ export default function CustomDesign() {
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M19 12H5" />
+                        <path d="M15 16l4-4-4-4" />
                       </svg>
                       {designTransform.hasBackground ? "Remove Background" : "No Background"}
                     </>
@@ -703,6 +731,26 @@ export default function CustomDesign() {
                       style={{ backgroundColor: selectedColor }}
                     />
                   )}
+                  <button
+                    onClick={handleReset}
+                    className="ml-2 p-1 rounded hover:bg-blue-200"
+                    title="Reset transparency and background"
+                  >
+                    <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
+                      <path d="M19 12H5" />
+                      <path d="M15 16l4-4-4-4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleImageReset}
+                    className="flex items-center px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    title="Reload current image"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -731,7 +779,9 @@ export default function CustomDesign() {
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
                   >
-                    <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
+                    <path d="M19 12H5" />
+                    <path d="M15 16l4-4-4-4" />
                   </svg>
                   Add to Cart
                 </>
