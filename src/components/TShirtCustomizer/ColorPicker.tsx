@@ -16,7 +16,7 @@ interface ColorPickerProps {
   onChange: (color: string) => void;
 }
 
-export default function ColorPicker({ color, onChange }: ColorPickerProps) {
+export const ColorPicker = ({ color, onChange }: ColorPickerProps) => {
   return (
     <div className="flex flex-wrap gap-2">
       {COLORS.map((c) => (

@@ -7,14 +7,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Set
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from server.models import Task, DesignRequest, TaskStatus
 from server.task_queue import TaskQueue
 from server.utils import serialize_datetime
+
+import io
+from PIL import Image
+from rembg import remove
 
 # Get the application root directory
 ROOT_DIR = Path(__file__).parent.parent.resolve()
@@ -100,6 +104,9 @@ async def options_handler(path: str):
 # Initialize task queue
 task_queue = TaskQueue()
 
+# Store design history in memory (last 5 designs)
+design_history = []
+
 # Connected workers
 connected_workers: Dict[str, WebSocket] = {}
 
@@ -111,6 +118,22 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0"
     }
+
+@app.get("/previous-designs")
+async def get_previous_designs():
+    """Get the last 5 generated designs."""
+    return JSONResponse(content=design_history[-5:])
+
+@app.post("/save-design")
+async def save_design(design_data: dict):
+    """Save a design to history."""
+    if "image_data" in design_data:
+        design_history.append(design_data["image_data"])
+        # Keep only last 5 designs
+        while len(design_history) > 5:
+            design_history.pop(0)
+        return {"status": "success"}
+    raise HTTPException(status_code=400, detail="No image data provided")
 
 @app.websocket("/ws")
 async def websocket_worker(websocket: WebSocket):
@@ -188,15 +211,17 @@ async def websocket_worker(websocket: WebSocket):
 
 @app.post("/design")
 async def create_design(request: DesignRequest):
-    """Create a new design request"""
+    """Create a new design request and save it to history if successful."""
     try:
+        # Add task to queue and get task ID
         task_id = await task_queue.add_task(request)
-        logger.info(f"Created design task: {task_id}")
+        logger.info(f"Created new task: {task_id}")
         
         return JSONResponse({
             "task_id": task_id,
             "status": "pending"
         })
+        
     except Exception as e:
         logger.error(f"Error creating design: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -242,6 +267,32 @@ async def get_image(image_name: str):
         raise
     except Exception as e:
         logger.error(f"Error serving image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/remove-background")
+async def remove_background(file: UploadFile = File(...)):
+    try:
+        # Read the uploaded image
+        image_data = await file.read()
+        input_image = Image.open(io.BytesIO(image_data))
+        
+        # Remove background
+        output_image = remove(input_image)
+        
+        # Convert to PNG format with transparency
+        output_buffer = io.BytesIO()
+        output_image.save(output_buffer, format='PNG')
+        output_buffer.seek(0)
+        
+        # Return the processed image
+        return StreamingResponse(
+            output_buffer, 
+            media_type="image/png",
+            headers={
+                'Content-Disposition': 'attachment; filename="processed_image.png"'
+            }
+        )
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

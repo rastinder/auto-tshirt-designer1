@@ -11,13 +11,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/react-slider": "^1.2.1",
+    "@radix-ui/react-slot": "^1.1.0",
     "@react-three/drei": "^9.92.7",
     "@react-three/fiber": "^8.15.12",
+    "@types/react-helmet": "^6.1.11",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-draggable": "^4.4.6",
+    "react-helmet": "^6.1.0",
     "react-helmet-async": "^2.0.4",
+    "react-image-crop": "^11.0.7",
+    "react-resizable": "^3.0.5",
     "react-router-dom": "^6.21.1",
+    "tailwind-merge": "^2.5.4",
     "three": "^0.160.0"
   },
   "devDependencies": {

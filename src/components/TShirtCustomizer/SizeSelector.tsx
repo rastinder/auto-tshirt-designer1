@@ -13,7 +13,7 @@ interface SizeSelectorProps {
   onChange: (size: string) => void;
 }
 
-export default function SizeSelector({ size, onChange }: SizeSelectorProps) {
+export const SizeSelector = ({ size, onChange }: SizeSelectorProps) => {
   return (
     <div className="space-y-4">
       <div className="flex gap-2">

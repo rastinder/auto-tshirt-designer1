@@ -6,7 +6,7 @@ interface PromptInputProps {
   isGenerating: boolean;
 }
 
-export default function PromptInput({ onGenerate, isGenerating }: PromptInputProps) {
+export const PromptInput = ({ onGenerate, isGenerating }: PromptInputProps) => {
   const [prompt, setPrompt] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
