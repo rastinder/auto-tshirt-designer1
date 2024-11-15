@@ -3,9 +3,9 @@
  */
 
 // Get API URL from environment or use default
-const API_URL = import.meta.env.VITE_API_URL || window.location.origin.includes('localhost') 
+const API_URL = import.meta.env.VITE_API_URL || (window.location.origin.includes('localhost') 
     ? 'http://localhost:8000' 
-    : `${window.location.origin}/api`;
+    : `${window.location.origin}/api`);
 
 /**
  * Applies color transparency to an image
