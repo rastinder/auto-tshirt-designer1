@@ -30,20 +30,17 @@ export async function applyColorTransparency(
         // Create form data for the API request
         const formData = new FormData();
         formData.append('file', imageBlob, 'design.png');
-        formData.append('color', color);
+        formData.append('color', color.replace('#', '')); // Remove # from color
         formData.append('tolerance', tolerance.toString());
 
         // Make the API request to our local server
         const response = await fetch(`${API_URL}/color_transparency`, {
             method: 'POST',
             body: formData,
+            credentials: 'include',
             headers: {
-                'Accept': 'image/png',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': '*'
-            },
-            credentials: 'same-origin'
+                'Accept': 'image/png'
+            }
         });
 
         if (!response.ok) {
