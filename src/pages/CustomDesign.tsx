@@ -81,6 +81,9 @@ export default function CustomDesign() {
   const designRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const nodeRef = useRef(null);
+  const dragStartPosition = useRef({ x: 0, y: 0 });
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
 
   const tshirtViews = {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
@@ -455,23 +458,29 @@ export default function CustomDesign() {
 
   const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
+    if (designRef.current) {
+      const rect = designRef.current.getBoundingClientRect();
+      dragStartPosition.current = { x: e.clientX, y: e.clientY };
+      dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      isDragging.current = true;
+      document.addEventListener('mousemove', handleDragMove);
+      document.addEventListener('mouseup', handleDragEnd);
+    }
   };
 
   const handleDragMove = (e: MouseEvent) => {
-    if (designRef.current) {
-      const rect = designRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+    if (isDragging.current && designRef.current) {
+      const newX = e.clientX - dragOffset.current.x;
+      const newY = e.clientY - dragOffset.current.y;
       setDesignTransform(prev => ({
         ...prev,
-        position: { x, y }
+        position: { x: newX, y: newY }
       }));
     }
   };
 
   const handleDragEnd = () => {
+    isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
   };
@@ -502,7 +511,7 @@ export default function CustomDesign() {
                   style={{
                     width: designTransform.width,
                     height: designTransform.height,
-                    transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px) rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`
+                    transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px)`
                   }}
                 >
                   <div
@@ -586,24 +595,24 @@ export default function CustomDesign() {
                       className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
                       onClick={handleColorPick}
                     />
+                  </div>
 
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
-                      <button
-                        onClick={() => handleResize('decrease')}
-                        className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                      >
-                        -
-                      </button>
-                      <div className="text-xs text-gray-500">
-                        {Math.round(designTransform.scale * 100)}%
-                      </div>
-                      <button
-                        onClick={() => handleResize('increase')}
-                        className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                      >
-                        +
-                      </button>
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
+                    <button
+                      onClick={() => handleResize('decrease')}
+                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                    >
+                      -
+                    </button>
+                    <div className="text-xs text-gray-500">
+                      {Math.round(designTransform.scale * 100)}%
                     </div>
+                    <button
+                      onClick={() => handleResize('increase')}
+                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               </div>
