@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Crop, AlertCircle, Loader2, Undo2 } from 'lucide-react';
-import { Scene } from '../components/TShirtCustomizer/Scene';
 import { ColorPicker } from '../components/TShirtCustomizer/ColorPicker';
 import { SizeSelector } from '../components/TShirtCustomizer/SizeSelector';
 import { PromptInput } from '../components/TShirtCustomizer/PromptInput';
@@ -9,7 +8,6 @@ import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../services/backgroundRemoval';
 import { debounce } from 'lodash';
-import { TransparencySlider } from '../components/TShirtCustomizer/TransparencySlider'; // Added this import
 
 interface DesignResponse {
   task_id: string;
@@ -51,8 +49,8 @@ export default function CustomDesign() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [designTexture, setDesignTexture] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string>('#000000'); // Updated this state variable
-  const [transparency, setTransparency] = useState(0); // Updated this state variable
+  const [selectedColor, setSelectedColor] = useState<string>('#000000');
+  const [transparency, setTransparency] = useState(0);
   const [isPickingColor, setIsPickingColor] = useState(false);
   const [designTransform, setDesignTransform] = useState<DesignTransform>({
     hasBackground: true,
@@ -81,7 +79,6 @@ export default function CustomDesign() {
 
   const designRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const nodeRef = useRef(null);
   const dragStartPosition = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
@@ -229,9 +226,9 @@ export default function CustomDesign() {
         const data = await response.json();
         console.log('Status response:', data);
 
-        if (data.status === 'completed' && data.result?.image_data) {
-          updateDesignWithHistory(data.result.image_data);
-          await saveDesignToHistory(data.result.image_data);
+        if (data.status === 'completed' && data.result?.image_url) {
+          updateDesignWithHistory(data.result.image_url);
+          await saveDesignToHistory(data.result.image_url);
           return;
         } else if (data.status === 'failed') {
           throw new Error(data.error || 'Design generation failed');
@@ -315,8 +312,21 @@ export default function CustomDesign() {
 
     try {
       setIsLoading(true);
-      const processedImageUrl = await removeBackground(designTexture);
-      updateDesignWithHistory(processedImageUrl);
+      const response = await fetch(`${apiBaseUrl}/remove-background`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        body: new FormData().append('file', await fetch(designTexture).then(r => r.blob()))
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove background');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      updateDesignWithHistory(url);
       setDesignTransform(prev => ({
         ...prev,
         hasBackground: false
@@ -386,65 +396,50 @@ export default function CustomDesign() {
 
     setSelectedColor(hexColor);
     setIsPickingColor(false);
-    debouncedTransparencyChange(transparency);
+    handleTransparencyChange(transparency);
   };
 
-  const debouncedTransparencyChange = useCallback(
-    debounce(async (newTransparency: number) => {
-      if (!selectedColor) return;
-      try {
-        setIsLoading(true);
-        setError(null);
-        const colorHex = selectedColor.replace('#', '');
-        const formData = new FormData();
-        if (designTexture) {
-          const response = await fetch(designTexture);
-          const blob = await response.blob();
-          formData.append('file', blob);
-        }
-        formData.append('color', colorHex);
-        formData.append('tolerance', (newTransparency / 100).toString());
+  const handleTransparencyChange = async (newTransparency: number) => {
+    if (!designTexture || !selectedColor) return;
 
-        const result = await fetch('http://localhost:8000/color_transparency', {
-          method: 'POST',
-          body: formData,
-        });
+    setIsLoading(true);
+    setError(null);
 
-        if (!result.ok) {
-          throw new Error(`Failed to apply transparency: ${result.statusText}`);
-        }
+    try {
+      const response = await fetch(`${apiBaseUrl}/color_transparency`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        body: new FormData().append('file', await fetch(designTexture).then(r => r.blob()))
+                            .append('color', selectedColor)
+                            .append('tolerance', (newTransparency / 100).toString())
+      });
 
-        const imageBlob = await result.blob();
-        const imageUrl = URL.createObjectURL(imageBlob);
-        setDesignTexture(imageUrl);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to apply transparency');
-        console.error('Error applying transparency:', err);
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error(`Failed to apply transparency: ${response.statusText}`);
       }
-    }, 300),
-    [designTexture, selectedColor]
-  );
 
-  const handleTransparencyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newTransparency = parseInt(event.target.value);
-    setTransparency(newTransparency);
-    debouncedTransparencyChange(newTransparency);
+      const blob = await response.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      setDesignTexture(imageUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply transparency');
+      console.error('Error applying transparency:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
     setSelectedColor('#000000');
-    setTransparency(0); // Updated to 0
+    setTransparency(0);
     setIsPickingColor(false);
-    if (designTexture) {
-      debouncedTransparencyChange(0); // Updated to 0
-    }
   };
 
   const handleImageReset = () => {
     if (designTexture) {
-      setTransparency(0); // Updated to 0
+      setTransparency(0);
       setSelectedColor('#000000');
       setIsPickingColor(false);
       setDesignTransform({
@@ -484,30 +479,6 @@ export default function CustomDesign() {
     isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
-  };
-
-  // Added this function
-  const handleTransparencyApply = async () => {
-    if (!designTexture) return;
-    
-    setIsLoading(true);
-    try {
-      const transparentImage = await applyColorTransparency(
-        designTexture,
-        selectedColor,
-        transparency / 100
-      );
-      setDesignTransform(prev => ({
-        ...prev,
-        texture: transparentImage,
-        hasBackground: false
-      }));
-    } catch (err) {
-      console.error('Error applying transparency:', err);
-      setError('Failed to apply transparency. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -763,102 +734,56 @@ export default function CustomDesign() {
                     )}
                     {designTransform.hasBackground ? "Remove Background" : "No Background"}
                   </button>
-                  <div className="flex items-center bg-blue-100 rounded h-[34px] px-2 py-1.5">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={transparency}
-                      onChange={handleTransparencyChange}
-                      disabled={isLoading || !selectedColor}
-                      className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        WebkitAppearance: 'none',
-                        appearance: 'none',
-                        backgroundColor: '#e5e7eb',
-                        borderRadius: '9999px',
-                        cursor: 'pointer',
-                        outline: 'none'
-                      }}
-                    />
-                    <button
-                      onClick={() => setIsPickingColor(!isPickingColor)}
-                      disabled={isLoading}
-                      className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title="Pick color for transparency"
-                    >
-                      {isLoading ? (
-                        <svg className="animate-spin w-4 h-4 text-blue-700" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M7 7h10v10H7z" />
-                          <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
-                    </button>
-                    {selectedColor && (
-                      <div
-                        className="ml-2 w-4 h-4 rounded border border-gray-300"
-                        style={{ backgroundColor: selectedColor }}
-                      />
+                  <button
+                    onClick={() => setIsPickingColor(!isPickingColor)}
+                    disabled={isLoading}
+                    className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="Pick color for transparency"
+                  >
+                    {isLoading ? (
+                      <svg className="animate-spin w-4 h-4 text-blue-700" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M7 7h10v10H7z" />
+                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     )}
-                    <div className="ml-2 text-sm text-gray-600">
-                      {transparency}%
-                    </div>
+                  </button>
+                  {selectedColor && (
+                    <div
+                      className="ml-2 w-4 h-4 rounded border border-gray-300"
+                      style={{ backgroundColor: selectedColor }}
+                    />
+                  )}
+                  <div className="ml-2 text-sm text-gray-600">
+                    {transparency}%
                   </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={transparency}
+                    onChange={(e) => setTransparency(parseInt(e.target.value))}
+                    disabled={isLoading || !selectedColor}
+                    className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      WebkitAppearance: 'none',
+                      appearance: 'none',
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: '9999px',
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  />
                   <button
                     onClick={handleReset}
                     className="flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap"
                     title="Reset transparency"
                   >
                     <Undo2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Added this UI section */}
-            {designTexture && (
-              <div className="space-y-4 border-t pt-4">
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium text-gray-700">Make Color Transparent</h3>
-                  
-                  {/* Color Selection */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="color"
-                      value={selectedColor}
-                      onChange={(e) => setSelectedColor(e.target.value)}
-                      className="w-10 h-10 p-1 rounded border border-gray-300"
-                    />
-                    <span className="text-sm text-gray-600">Select color to remove</span>
-                  </div>
-
-                  {/* Transparency Slider */}
-                  <TransparencySlider 
-                    value={transparency} 
-                    onChange={setTransparency}
-                  />
-
-                  {/* Apply Button */}
-                  <button
-                    onClick={handleTransparencyApply}
-                    disabled={isLoading}
-                    className="w-full mt-2 py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 
-                             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 
-                             disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Applying...
-                      </span>
-                    ) : (
-                      'Apply Transparency'
-                    )}
                   </button>
                 </div>
               </div>
