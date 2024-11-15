@@ -1,26 +1,26 @@
 module.exports = {
   apps: [
     {
-      name: "ai-tshirt-frontend",
+      name: "frontend",
       script: "npm",
-      args: "start",
+      args: "run preview",
       env: {
         NODE_ENV: "production",
-        PORT: 3000,
+        PORT: "3000",
         HOST: "0.0.0.0"
       },
       max_memory_restart: '500M'
     },
     {
-      name: "ai-tshirt-server",
+      name: "backend",
       script: "./venv/bin/python",
-      args: ["server/main.py"],
+      args: ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      cwd: "./server",
       interpreter: null,
       env: {
-        PORT: "8000",
-        HOST: "0.0.0.0",
-        PYTHONPATH: ".",
-        PYTHONUNBUFFERED: "1"
+        PYTHONPATH: "./server:.",
+        PYTHONUNBUFFERED: "1",
+        CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,*"
       },
       max_memory_restart: '1G'
     }
