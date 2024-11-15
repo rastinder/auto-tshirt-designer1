@@ -12,9 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from models import Task, DesignRequest, TaskStatus
-from task_queue import TaskQueue
-from utils import serialize_datetime
+# Add the parent directory to sys.path
+current_dir = Path(__file__).parent
+parent_dir = current_dir.parent
+sys.path.insert(0, str(parent_dir))
+
+from server.models import Task, DesignRequest, TaskStatus
+from server.task_queue import TaskQueue
+from server.utils import serialize_datetime
 
 import io
 from PIL import Image

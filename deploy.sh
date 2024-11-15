@@ -27,10 +27,21 @@ if ! command -v node &> /dev/null || [[ ! "$(node -v)" =~ ^v18\. ]]; then
     sudo apt-get install -y nodejs build-essential
 fi
 
+# Set up project structure
+echo "Setting up project structure..."
+PROJECT_ROOT=$(pwd)
+
+# Create necessary directories
+mkdir -p server/outputs
+mkdir -p server/logs
+
 # Create and activate virtual environment with Python 3.11
 echo "Creating Python virtual environment..."
 python3.11 -m venv venv
 source venv/bin/activate
+
+# Add project root to PYTHONPATH
+export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH}"
 
 # Upgrade pip to latest version
 python -m pip install --upgrade pip
@@ -74,11 +85,11 @@ module.exports = {
     },
     {
       name: 'backend',
-      script: './venv/bin/python',
+      script: '${PROJECT_ROOT}/venv/bin/python',
       args: '-m uvicorn main:app --host 0.0.0.0 --port 8000',
-      cwd: './server',
+      cwd: '${PROJECT_ROOT}/server',
       env: {
-        PYTHONPATH: '\${PWD}/server',
+        PYTHONPATH: '${PROJECT_ROOT}/server:${PROJECT_ROOT}',
         PYTHONUNBUFFERED: '1',
       },
     },
@@ -86,13 +97,14 @@ module.exports = {
 };
 EOF
 
-# Create directories if they don't exist
-mkdir -p server/outputs
-mkdir -p server/logs
-
 # Set proper permissions
 chmod -R 755 server/outputs
 chmod -R 755 server/logs
+
+# Create .env file for server
+cat > server/.env << EOF
+PYTHONPATH=${PROJECT_ROOT}/server:${PROJECT_ROOT}
+EOF
 
 # Start services with PM2
 pm2 start ecosystem.config.cjs
@@ -158,3 +170,15 @@ sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
 
 echo "Deployment complete! Server is running at http://${SERVER_IP}"
 echo "API endpoints are available at http://${SERVER_IP}/api"
+
+# Display PM2 process status
+echo -e "\nChecking PM2 process status:"
+pm2 status
+
+# Display Nginx status
+echo -e "\nChecking Nginx status:"
+sudo systemctl status nginx --no-pager
+
+# Display Python path for debugging
+echo -e "\nPython path configuration:"
+echo "PYTHONPATH: ${PYTHONPATH}"
