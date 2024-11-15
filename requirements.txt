@@ -11,6 +11,12 @@ pillow==10.0.0
 requests==2.31.0
 zeroconf==0.131.0
 aiozeroconf==0.1.8
+aiohttp==3.11.2
+aiosignal>=1.1.2  # Required by aiohttp
+attrs>=17.3.0    # Required by aiohttp
+frozenlist>=1.1.1  # Required by aiohttp
+multidict>=4.5   # Required by aiohttp
+yarl>=1.17.0     # Required by aiohttp
 
 # Testing dependencies
 pytest==7.4.3
