@@ -171,10 +171,6 @@ sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
 echo "Deployment complete! Server is running at http://${SERVER_IP}"
 echo "API endpoints are available at http://${SERVER_IP}/api"
 
-# Display PM2 process status
-echo -e "\nChecking PM2 process status:"
-pm2 status
-
 # Display Nginx status
 echo -e "\nChecking Nginx status:"
 sudo systemctl status nginx --no-pager
@@ -182,3 +178,7 @@ sudo systemctl status nginx --no-pager
 # Display Python path for debugging
 echo -e "\nPython path configuration:"
 echo "PYTHONPATH: ${PYTHONPATH}"
+
+# Display PM2 process status
+echo -e "\nChecking PM2 process status:"
+pm2 status

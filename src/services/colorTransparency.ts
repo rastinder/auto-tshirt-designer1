@@ -39,7 +39,11 @@ export async function applyColorTransparency(
             body: formData,
             headers: {
                 'Accept': 'image/png',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': '*'
             },
+            credentials: 'same-origin'
         });
 
         if (!response.ok) {
