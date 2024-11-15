@@ -380,14 +380,15 @@ async def color_transparency(
         img_byte_arr.seek(0)
         
         logger.info("Successfully processed image")
+        
+        # Return the processed image with proper headers
         return StreamingResponse(
-            img_byte_arr, 
+            img_byte_arr,
             media_type="image/png",
             headers={
-                "Content-Disposition": "inline",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "*"
+                "Content-Disposition": "attachment; filename=transparent.png",
+                "Content-Type": "image/png",
+                "Cache-Control": "no-cache"
             }
         )
         

@@ -20,12 +20,21 @@ export async function applyColorTransparency(
     tolerance: number = 0.5
 ): Promise<string> {
     try {
-        // Convert the image URL/Base64 to a blob
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-            throw new Error('Failed to fetch image');
+        let imageBlob: Blob;
+        
+        // Handle base64 image data
+        if (imageUrl.startsWith('data:')) {
+            // Convert base64 to blob directly
+            const base64Response = await fetch(imageUrl);
+            imageBlob = await base64Response.blob();
+        } else {
+            // Handle regular URL
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) {
+                throw new Error('Failed to fetch image');
+            }
+            imageBlob = await imageResponse.blob();
         }
-        const imageBlob = await imageResponse.blob();
 
         // Create form data for the API request
         const formData = new FormData();
