@@ -9,6 +9,7 @@ import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../services/backgroundRemoval';
 import { debounce } from 'lodash';
+import { TransparencySlider } from '../components/TShirtCustomizer/TransparencySlider'; // Added this import
 
 interface DesignResponse {
   task_id: string;
@@ -50,8 +51,8 @@ export default function CustomDesign() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [designTexture, setDesignTexture] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string>('#fef900');
-  const [transparency, setTransparency] = useState(50);
+  const [selectedColor, setSelectedColor] = useState<string>('#000000'); // Updated this state variable
+  const [transparency, setTransparency] = useState(0); // Updated this state variable
   const [isPickingColor, setIsPickingColor] = useState(false);
   const [designTransform, setDesignTransform] = useState<DesignTransform>({
     hasBackground: true,
@@ -433,18 +434,18 @@ export default function CustomDesign() {
   };
 
   const handleReset = () => {
-    setSelectedColor('#fef900');
-    setTransparency(50);
+    setSelectedColor('#000000');
+    setTransparency(0); // Updated to 0
     setIsPickingColor(false);
     if (designTexture) {
-      debouncedTransparencyChange(50);
+      debouncedTransparencyChange(0); // Updated to 0
     }
   };
 
   const handleImageReset = () => {
     if (designTexture) {
-      setTransparency(50);
-      setSelectedColor('#fef900');
+      setTransparency(0); // Updated to 0
+      setSelectedColor('#000000');
       setIsPickingColor(false);
       setDesignTransform({
         ...designTransform,
@@ -483,6 +484,30 @@ export default function CustomDesign() {
     isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
+  };
+
+  // Added this function
+  const handleTransparencyApply = async () => {
+    if (!designTexture) return;
+    
+    setIsLoading(true);
+    try {
+      const transparentImage = await applyColorTransparency(
+        designTexture,
+        selectedColor,
+        transparency / 100
+      );
+      setDesignTransform(prev => ({
+        ...prev,
+        texture: transparentImage,
+        hasBackground: false
+      }));
+    } catch (err) {
+      console.error('Error applying transparency:', err);
+      setError('Failed to apply transparency. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -790,6 +815,50 @@ export default function CustomDesign() {
                     title="Reset transparency"
                   >
                     <Undo2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Added this UI section */}
+            {designTexture && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-medium text-gray-700">Make Color Transparent</h3>
+                  
+                  {/* Color Selection */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="color"
+                      value={selectedColor}
+                      onChange={(e) => setSelectedColor(e.target.value)}
+                      className="w-10 h-10 p-1 rounded border border-gray-300"
+                    />
+                    <span className="text-sm text-gray-600">Select color to remove</span>
+                  </div>
+
+                  {/* Transparency Slider */}
+                  <TransparencySlider 
+                    value={transparency} 
+                    onChange={setTransparency}
+                  />
+
+                  {/* Apply Button */}
+                  <button
+                    onClick={handleTransparencyApply}
+                    disabled={isLoading}
+                    className="w-full mt-2 py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Applying...
+                      </span>
+                    ) : (
+                      'Apply Transparency'
+                    )}
                   </button>
                 </div>
               </div>
