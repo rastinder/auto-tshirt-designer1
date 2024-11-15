@@ -5,7 +5,6 @@ import { Scene } from '../components/TShirtCustomizer/Scene';
 import { ColorPicker } from '../components/TShirtCustomizer/ColorPicker';
 import { SizeSelector } from '../components/TShirtCustomizer/SizeSelector';
 import { PromptInput } from '../components/TShirtCustomizer/PromptInput';
-import Draggable from 'react-draggable';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../services/backgroundRemoval';
@@ -30,6 +29,7 @@ interface DesignTransform {
   scale: number;
   originalWidth: number;
   originalHeight: number;
+  position: { x: number; y: number };
 }
 
 // API URL configuration
@@ -62,6 +62,7 @@ export default function CustomDesign() {
     scale: 1,
     originalWidth: 200,
     originalHeight: 200,
+    position: { x: 0, y: 0 },
   });
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
   const [designHistory, setDesignHistory] = useState<string[]>([]);
@@ -79,7 +80,7 @@ export default function CustomDesign() {
 
   const designRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const nodeRef = useRef(null); // Add this ref for Draggable
+  const nodeRef = useRef(null);
 
   const tshirtViews = {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
@@ -147,11 +148,9 @@ export default function CustomDesign() {
           image_data: imageData
         }),
       });
-      
-      // Update local state with new design
       setPreviousDesigns(prev => {
         const newDesigns = [...prev, imageData];
-        return newDesigns.slice(-5); // Keep only last 5 designs
+        return newDesigns.slice(-5);
       });
     } catch (err) {
       console.error('Failed to save design to history:', err);
@@ -180,7 +179,6 @@ export default function CustomDesign() {
   const handleGenerateDesign = async (prompt: string) => {
     setIsGenerating(true);
     setError('');
-    
     try {
       const formattedPrompt = formatPrompt(prompt, color);
       const response = await fetch(`${apiBaseUrl}/design`, {
@@ -199,10 +197,8 @@ export default function CustomDesign() {
       }
 
       const data = await response.json();
-      
       if (data.task_id) {
         setTaskId(data.task_id);
-        // Start polling for status
         await pollDesignStatus(data.task_id);
       } else {
         throw new Error('No task ID received');
@@ -216,7 +212,7 @@ export default function CustomDesign() {
   };
 
   const pollDesignStatus = async (taskId: string) => {
-    const maxRetries = 30; // 30 seconds
+    const maxRetries = 30;
     let retries = 0;
 
     while (retries < maxRetries) {
@@ -237,7 +233,6 @@ export default function CustomDesign() {
           throw new Error(data.error || 'Design generation failed');
         }
 
-        // Wait 1 second before next poll
         await new Promise(resolve => setTimeout(resolve, 1000));
         retries++;
       } catch (err) {
@@ -282,10 +277,10 @@ export default function CustomDesign() {
       const image = imageRef.current;
       const scaleX = image.naturalWidth / image.width;
       const scaleY = image.naturalHeight / image.height;
-      
+
       canvas.width = crop.width * scaleX;
       canvas.height = crop.height * scaleY;
-      
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(
@@ -299,7 +294,7 @@ export default function CustomDesign() {
           canvas.width,
           canvas.height
         );
-        
+
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
@@ -316,11 +311,7 @@ export default function CustomDesign() {
 
     try {
       setIsLoading(true);
-      
-      // Call the background removal service
       const processedImageUrl = await removeBackground(designTexture);
-      
-      // Update the design texture and state
       updateDesignWithHistory(processedImageUrl);
       setDesignTransform(prev => ({
         ...prev,
@@ -328,7 +319,6 @@ export default function CustomDesign() {
       }));
     } catch (error: any) {
       console.error('Error removing background:', error);
-      // Show error in the UI
       setError(error.message || 'Failed to remove background. Please try again.');
     } finally {
       setIsLoading(false);
@@ -356,20 +346,13 @@ export default function CustomDesign() {
       setError('Please create a design first');
       return;
     }
-    
-    // Here you can add the logic to add the item to cart
-    // For example, save the current design, color, and size
     const cartItem = {
       design: designTexture,
       color: color,
       size: size,
       timestamp: new Date().toISOString()
     };
-
-    // You can dispatch this to your cart state management
     console.log('Adding to cart:', cartItem);
-    
-    // Show success message
     alert('Added to cart successfully!');
   };
 
@@ -393,29 +376,22 @@ export default function CustomDesign() {
     const scaleY = img.naturalHeight / rect.height;
 
     const pixel = ctx.getImageData(x * scaleX, y * scaleY, 1, 1).data;
-    // Ensure each color component is padded to 2 digits
     const hexColor = '#' + [pixel[0], pixel[1], pixel[2]]
       .map(x => x.toString(16).padStart(2, '0'))
       .join('');
-    
+
     setSelectedColor(hexColor);
     setIsPickingColor(false);
-    // Trigger transparency update with new color
     debouncedTransparencyChange(transparency);
   };
 
-  // Debounce the transparency change
   const debouncedTransparencyChange = useCallback(
     debounce(async (newTransparency: number) => {
       if (!selectedColor) return;
-      
       try {
         setIsLoading(true);
         setError(null);
-        
-        // Convert the color to hex without #
         const colorHex = selectedColor.replace('#', '');
-        
         const formData = new FormData();
         if (designTexture) {
           const response = await fetch(designTexture);
@@ -464,12 +440,9 @@ export default function CustomDesign() {
 
   const handleImageReset = () => {
     if (designTexture) {
-      // Reset all states without removing the image
       setTransparency(50);
       setSelectedColor('#fef900');
       setIsPickingColor(false);
-      
-      // Reset design transform without triggering loading state
       setDesignTransform({
         ...designTransform,
         hasBackground: true,
@@ -478,6 +451,29 @@ export default function CustomDesign() {
         position: { x: 0, y: 0 }
       });
     }
+  };
+
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+  };
+
+  const handleDragMove = (e: MouseEvent) => {
+    if (designRef.current) {
+      const rect = designRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setDesignTransform(prev => ({
+        ...prev,
+        position: { x, y }
+      }));
+    }
+  };
+
+  const handleDragEnd = () => {
+    document.removeEventListener('mousemove', handleDragMove);
+    document.removeEventListener('mouseup', handleDragEnd);
   };
 
   return (
@@ -494,162 +490,125 @@ export default function CustomDesign() {
               alt={`T-shirt ${viewMode} view`}
               className="w-full h-full object-contain"
             />
-            
+
             {designTexture && !isCropping && (
-              <Draggable 
-                bounds="parent"
-                nodeRef={nodeRef}
-                onStart={(e, data) => {
-                  if (e.type === 'mousedown' && nodeRef.current) {
-                    // Get mouse position relative to element
-                    const rect = nodeRef.current.getBoundingClientRect();
-                    const offsetX = e.clientX - rect.left;
-                    const offsetY = e.clientY - rect.top;
-                    
-                    // Set initial position immediately
-                    nodeRef.current.style.transform = `translate(${e.clientX - offsetX}px, ${e.clientY - offsetY}px)`;
-                    return true;
-                  }
-                  return false;
-                }}
-                onDrag={(e, data) => {
-                  if (e.type === 'mousemove' && e.buttons === 1 && nodeRef.current) {
-                    nodeRef.current.style.transform = `translate(${data.x}px, ${data.y}px)`;
-                  }
-                }}
-                onStop={(e, data) => {
-                  if (nodeRef.current) {
-                    nodeRef.current.style.transform = `translate(${data.x}px, ${data.y}px)`;
-                    // Prevent any residual movement
-                    nodeRef.current.style.pointerEvents = 'none';
-                    setTimeout(() => {
-                      if (nodeRef.current) {
-                        nodeRef.current.style.pointerEvents = 'auto';
-                      }
-                    }, 0);
-                  }
-                }}
-                defaultPosition={{x: 0, y: 0}}
-                position={undefined}
+              <div
+                ref={designRef}
+                className="absolute top-0 left-0 cursor-move"
+                onMouseDown={handleDragStart}
               >
-                <div ref={nodeRef} className="absolute top-1/4 left-1/4 cursor-move">
-                  <div 
-                    className="relative"
-                    style={{
-                      width: designTransform.width,
-                      height: designTransform.height
-                    }}
+                <div
+                  className="relative"
+                  style={{
+                    width: designTransform.width,
+                    height: designTransform.height,
+                    transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px) rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`
+                  }}
+                >
+                  <div
+                    className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ cursor: 'default' }}
                   >
-                    {/* Rotation and Reset Controls */}
-                    <div 
-                      className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      style={{ cursor: 'default' }}
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDesignTransform(prev => ({
-                            ...prev,
-                            rotation: prev.rotation - 5
-                          }));
-                        }}
-                        className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                      >
-                        ↺
-                      </button>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={designTransform.rotation}
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          setDesignTransform(prev => ({
-                            ...prev,
-                            rotation: parseInt(e.target.value)
-                          }));
-                        }}
-                        className="w-32 mx-0.5 h-0.5"
-                        style={{
-                          WebkitAppearance: 'none',
-                          appearance: 'none',
-                          backgroundColor: '#e5e7eb',
-                          borderRadius: '9999px',
-                          cursor: 'pointer',
-                          outline: 'none'
-                        }}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDesignTransform(prev => ({
-                            ...prev,
-                            rotation: prev.rotation + 5
-                          }));
-                        }}
-                        className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                      >
-                        ↻
-                      </button>
-                      <div className="w-px h-4 bg-gray-200 mx-1" /> {/* Divider */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRestore();
-                        }}
-                        className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
-                        title="Reset size and rotation"
-                      >
-                        Reset
-                      </button>
-                    </div>
-
-                    {/* Image container with rotation and scale */}
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
-                        transition: 'transform 0.1s ease',
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: prev.rotation - 5
+                        }));
                       }}
-                      className="cursor-move relative"
-                      ref={designRef}
+                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
                     >
-                      <img
-                        src={designTexture}
-                        alt="Design"
-                        className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                        onClick={handleColorPick}
-                      />
+                      ↺
+                    </button>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={designTransform.rotation}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: parseInt(e.target.value)
+                        }));
+                      }}
+                      className="w-32 mx-0.5 h-0.5"
+                      style={{
+                        WebkitAppearance: 'none',
+                        appearance: 'none',
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: '9999px',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: prev.rotation + 5
+                        }));
+                      }}
+                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+                    >
+                      ↻
+                    </button>
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRestore();
+                      }}
+                      className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
+                      title="Reset size and rotation"
+                    >
+                      Reset
+                    </button>
+                  </div>
 
-                      {/* Resize controls */}
-                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
-                        <button
-                          onClick={() => handleResize('decrease')}
-                          className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                        >
-                          -
-                        </button>
-                        <div className="text-xs text-gray-500">
-                          {Math.round(designTransform.scale * 100)}%
-                        </div>
-                        <button
-                          onClick={() => handleResize('increase')}
-                          className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                        >
-                          +
-                        </button>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
+                      transition: 'transform 0.1s ease',
+                    }}
+                    className="cursor-move relative"
+                  >
+                    <img
+                      src={designTexture}
+                      alt="Design"
+                      className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                      onClick={handleColorPick}
+                    />
+
+                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
+                      <button
+                        onClick={() => handleResize('decrease')}
+                        className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                      >
+                        -
+                      </button>
+                      <div className="text-xs text-gray-500">
+                        {Math.round(designTransform.scale * 100)}%
                       </div>
+                      <button
+                        onClick={() => handleResize('increase')}
+                        className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
                 </div>
-              </Draggable>
+              </div>
             )}
 
-            {/* Previous Designs Gallery */}
             {previousDesigns.length > 0 && (
               <div className="absolute right-4 top-4 flex flex-col gap-2 z-50">
                 {previousDesigns.map((design, index) => (
@@ -669,7 +628,6 @@ export default function CustomDesign() {
               </div>
             )}
 
-            {/* Cropping overlay */}
             {designTexture && isCropping && (
               <div className="absolute inset-0 bg-white">
                 <ReactCrop
@@ -688,7 +646,6 @@ export default function CustomDesign() {
             )}
           </div>
 
-          {/* View mode thumbnails */}
           <div className="flex justify-center space-x-3">
             {Object.entries(tshirtViews).map(([view, url]) => (
               <button
@@ -715,19 +672,16 @@ export default function CustomDesign() {
             </div>
           </div>
 
-          {/* 1. Color Picker */}
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-1">Select Color</h3>
             <ColorPicker color={color} onChange={setColor} />
           </div>
 
-          {/* 2. Size Selector */}
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-1">Select Size</h3>
             <SizeSelector size={size} onChange={setSize} />
           </div>
 
-          {/* 3. Details Section */}
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-1">Product Details</h3>
             <div className="bg-gray-50 p-2 rounded-lg text-sm">
@@ -740,13 +694,11 @@ export default function CustomDesign() {
             </div>
           </div>
 
-          {/* 4. Design Generator */}
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-1">Generate Design</h3>
             <PromptInput onGenerate={handleGenerateDesign} isGenerating={isGenerating} />
           </div>
 
-          {/* 5. Design Controls (Crop & Background) */}
           <div className="space-y-4">
             {designTexture && (
               <div className="mb-4">
@@ -814,7 +766,7 @@ export default function CustomDesign() {
                       )}
                     </button>
                     {selectedColor && (
-                      <div 
+                      <div
                         className="ml-2 w-4 h-4 rounded border border-gray-300"
                         style={{ backgroundColor: selectedColor }}
                       />
@@ -834,7 +786,6 @@ export default function CustomDesign() {
               </div>
             )}
 
-            {/* Add to Cart Button */}
             <div>
               <button
                 onClick={handleAddToCart}
@@ -848,13 +799,13 @@ export default function CustomDesign() {
                   </>
                 ) : (
                   <>
-                    <svg 
-                      className="w-5 h-5" 
-                      fill="none" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth="2" 
-                      viewBox="0 0 24 24" 
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
                       <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
