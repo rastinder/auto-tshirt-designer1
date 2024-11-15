@@ -12,9 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from server.models import Task, DesignRequest, TaskStatus
-from server.task_queue import TaskQueue
-from server.utils import serialize_datetime
+from models import Task, DesignRequest, TaskStatus
+from task_queue import TaskQueue
+from utils import serialize_datetime
 
 import io
 from PIL import Image

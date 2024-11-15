@@ -78,12 +78,21 @@ module.exports = {
       args: '-m uvicorn main:app --host 0.0.0.0 --port 8000',
       cwd: './server',
       env: {
-        PYTHONPATH: '.',
+        PYTHONPATH: '\${PWD}/server',
+        PYTHONUNBUFFERED: '1',
       },
     },
   ],
 };
 EOF
+
+# Create directories if they don't exist
+mkdir -p server/outputs
+mkdir -p server/logs
+
+# Set proper permissions
+chmod -R 755 server/outputs
+chmod -R 755 server/logs
 
 # Start services with PM2
 pm2 start ecosystem.config.cjs
