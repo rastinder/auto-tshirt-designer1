@@ -19,3 +19,73 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+@layer components {
+  .toolbar-button {
+    @apply px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+    disabled:opacity-50 disabled:cursor-not-allowed
+    bg-white hover:bg-gray-100 text-gray-700
+    flex items-center justify-center whitespace-nowrap;
+  }
+}
+
+.design-container {
+  @apply relative min-h-screen bg-gray-50 pt-16 pb-32;
+}
+
+.toolbar-top {
+  @apply fixed top-16 left-0 right-0 z-50
+    flex items-center justify-center gap-2 py-2 px-4
+    bg-white/80 backdrop-blur border-b border-gray-200;
+}
+
+.design-toolbar {
+  @apply fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50
+    flex items-center justify-center
+    bg-white rounded-lg shadow-lg p-2
+    max-w-[calc(100%-2rem)] overflow-x-auto;
+}
+
+.color-picker-container {
+  @apply fixed bottom-24 left-4 right-4 
+    flex justify-center z-50;
+}
+
+.design-preview {
+  @apply relative mx-auto max-w-4xl
+    flex items-center justify-center
+    mt-8 mb-32;
+}
+
+.canvas-container {
+  @apply relative w-full h-full;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 640px) {
+  .design-container {
+    @apply pt-14 pb-28;
+  }
+
+  .toolbar-top {
+    @apply top-14 px-2;
+  }
+
+  .toolbar-button {
+    @apply px-2 py-1 text-xs;
+  }
+
+  .design-toolbar {
+    @apply bottom-2 p-1;
+  }
+
+  .color-picker-container {
+    @apply bottom-16;
+  }
+}
+
+/* Prevent layout shift when scrollbar appears */
+html {
+  scrollbar-gutter: stable;
+}
