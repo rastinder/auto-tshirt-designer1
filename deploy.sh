@@ -16,6 +16,10 @@ sudo apt-get update
 # Install Python 3.11 and development packages
 sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
 
+# Install required system libraries for background removal
+echo "Installing system dependencies for background removal..."
+sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+
 # Install Node.js 18.x if not installed or upgrade if older version
 if ! command -v node &> /dev/null || [[ ! "$(node -v)" =~ ^v18\. ]]; then
     echo "Installing Node.js 18.x..."
@@ -36,6 +40,10 @@ echo "Installing server requirements..."
 pip install -r requirements.txt
 pip install -r server/requirements.txt
 
+# Verify rembg installation
+echo "Verifying background removal dependencies..."
+pip install rembg[gpu] u2net
+
 # Install Node.js dependencies and build frontend
 echo "Installing Node.js dependencies..."
 npm install
@@ -51,6 +59,31 @@ fi
 # Configure PM2
 echo "Configuring PM2..."
 pm2 delete all 2>/dev/null || true
+
+# Create PM2 ecosystem file
+cat > ecosystem.config.cjs << EOF
+module.exports = {
+  apps: [
+    {
+      name: 'frontend',
+      script: 'npm',
+      args: 'run preview',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+    {
+      name: 'backend',
+      script: './venv/bin/python',
+      args: '-m uvicorn main:app --host 0.0.0.0 --port 8000',
+      cwd: './server',
+      env: {
+        PYTHONPATH: '.',
+      },
+    },
+  ],
+};
+EOF
 
 # Start services with PM2
 pm2 start ecosystem.config.cjs
@@ -70,6 +103,8 @@ server {
     listen 80;
     server_name ${SERVER_IP};
 
+    client_max_body_size 10M;  # Allow larger file uploads
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -80,12 +115,14 @@ server {
     }
 
     location /api {
+        rewrite ^/api(/.*)$ \$1 break;  # Remove /api prefix
         proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
         proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;  # Increased timeout for background removal
     }
 
     location /ws {
@@ -104,4 +141,11 @@ sudo ln -sf /etc/nginx/sites-available/t-shirt-designer /etc/nginx/sites-enabled
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo systemctl restart nginx
 
-echo "Deployment completed! The application should be accessible at http://${SERVER_IP}"
+# Save PM2 process list
+pm2 save
+
+# Setup PM2 to start on boot
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
+
+echo "Deployment complete! Server is running at http://${SERVER_IP}"
+echo "API endpoints are available at http://${SERVER_IP}/api"
