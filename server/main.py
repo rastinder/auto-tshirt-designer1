@@ -46,11 +46,11 @@ app = FastAPI(title="AI T-Shirt Design API")
 # Configure CORS with specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["Content-Disposition"],
 )
 
 # Create and configure directories

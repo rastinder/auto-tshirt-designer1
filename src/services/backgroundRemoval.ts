@@ -13,6 +13,9 @@ export async function removeBackground(imageUrl: string): Promise<string> {
     try {
         // Convert the image URL/Base64 to a blob
         const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            throw new Error('Failed to fetch image');
+        }
         const imageBlob = await imageResponse.blob();
 
         // Create form data for the API request
@@ -23,11 +26,23 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         const response = await fetch(`${API_URL}/remove-background`, {
             method: 'POST',
             body: formData,
+            mode: 'cors',
+            credentials: 'include',
+            headers: {
+                'Accept': 'image/png',
+            },
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to remove background');
+            const errorText = await response.text();
+            let errorMessage;
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.detail || 'Failed to remove background';
+            } catch {
+                errorMessage = errorText || 'Failed to remove background';
+            }
+            throw new Error(errorMessage);
         }
 
         // Get the processed image and create a blob URL
