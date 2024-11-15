@@ -108,6 +108,18 @@ async def options_handler(path: str):
         },
     )
 
+@app.options("/color_transparency")
+async def color_transparency_options():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
 # Initialize task queue
 task_queue = TaskQueue()
 
@@ -329,8 +341,9 @@ async def color_transparency(
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
         # Ensure color is in correct hex format (without #)
+        color = color.lstrip('#')  # Remove # if present
         if len(color) != 6:
-            raise HTTPException(status_code=400, detail="Invalid color format. Must be a 6-digit hex color without # (e.g., FF0000)")
+            raise HTTPException(status_code=400, detail="Invalid color format. Must be a 6-digit hex color (e.g., FF0000)")
             
         try:
             r = int(color[0:2], 16)
@@ -339,7 +352,7 @@ async def color_transparency(
             target_color = np.array([r, g, b])
             logger.info(f"Target color RGB: {target_color}")
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid color format. Must be a valid hex color without # (e.g., FF0000)")
+            raise HTTPException(status_code=400, detail="Invalid color format. Must be a valid hex color (e.g., FF0000)")
         
         # Create alpha channel based on color similarity
         height, width = img_rgb.shape[:2]
@@ -371,7 +384,9 @@ async def color_transparency(
             media_type="image/png",
             headers={
                 "Content-Disposition": "inline",
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
             }
         )
         
