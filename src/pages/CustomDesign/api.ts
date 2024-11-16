@@ -309,27 +309,55 @@ export const handleTransparencyChange = async (designTexture: string | null, sel
 };
 
 export const removeBackground = async (imageData: string): Promise<Response> => {
-  // Convert base64/URL to blob
-  let imageBlob: Blob;
-  if (imageData.startsWith('data:')) {
-    // Handle base64 data
-    const base64Response = await fetch(imageData);
-    imageBlob = await base64Response.blob();
-  } else {
-    // Handle URL
-    const urlResponse = await fetch(imageData);
-    imageBlob = await urlResponse.blob();
+  try {
+    // Convert base64/URL to blob
+    let imageBlob: Blob;
+    if (imageData.startsWith('data:')) {
+      // Handle base64 data
+      const base64Data = imageData.split(',')[1];
+      const binaryStr = atob(base64Data);
+      const arr = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        arr[i] = binaryStr.charCodeAt(i);
+      }
+      imageBlob = new Blob([arr], { type: 'image/png' });
+    } else {
+      // Handle URL
+      const urlResponse = await fetch(imageData);
+      if (!urlResponse.ok) {
+        throw new Error('Failed to fetch image from URL');
+      }
+      imageBlob = await urlResponse.blob();
+    }
+
+    // Validate blob size and type
+    if (imageBlob.size === 0) {
+      throw new Error('Invalid image: Empty file');
+    }
+    if (!imageBlob.type.startsWith('image/')) {
+      throw new Error('Invalid file type: Must be an image');
+    }
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('image', imageBlob, 'design.png');
+
+    // Send request to remove background
+    const response = await fetch(`${apiBaseUrl}/remove-background`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.detail || `Failed to remove background: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Background removal error:', error);
+    throw error;
   }
-
-  // Create form data
-  const formData = new FormData();
-  formData.append('image', imageBlob, 'design.png');
-
-  // Send request to remove background
-  return fetch(`${apiBaseUrl}/remove-background`, {
-    method: 'POST',
-    body: formData,
-  });
 };
 
 const formatPrompt = (basePrompt: string, color: string) => {
