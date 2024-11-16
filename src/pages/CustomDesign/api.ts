@@ -9,18 +9,21 @@ const PROMPT_TEMPLATES = {
 };
 
 const isDevelopment = import.meta.env.DEV;
-const apiBaseUrl = isDevelopment ? 'http://localhost:8000' : '/api';
+const apiBaseUrl = isDevelopment ? 'http://localhost:8000' : 'https://aitshirts.in/api';
 
 export const checkLocalServer = async () => {
   try {
     const response = await fetch(`${apiBaseUrl}/`);
     if (response.ok) {
       console.log('API is available');
+      return true;
     } else {
-      console.log('API is not available');
+      console.error('API returned status:', response.status);
+      return false;
     }
   } catch (err) {
-    console.log('API is not available');
+    console.error('API is not available:', err);
+    return false;
   }
 };
 
@@ -32,9 +35,13 @@ export const loadPreviousDesigns = async (setPreviousDesigns: React.Dispatch<Rea
       const designs = await response.json();
       setPreviousDesigns(designs);
       console.log('Loaded previous designs:', designs);
+    } else {
+      console.error('Failed to load previous designs. Status:', response.status);
+      throw new Error(`Failed to load previous designs: ${response.statusText}`);
     }
   } catch (err) {
     console.error('Failed to load previous designs:', err);
+    setPreviousDesigns([]);
   } finally {
     setIsLoadingHistory(false);
   }
@@ -68,10 +75,13 @@ export const handleGenerateDesign = async (
   saveDesignToHistory: (imageData: string) => Promise<void>,
   updateDesignWithHistory: (newDesign: string | null) => void
 ) => {
-  const formattedPrompt = formatPrompt(prompt, color);
   setIsGenerating(true);
-  setError('');
+  setError(null);
+  
   try {
+    const formattedPrompt = formatPrompt(prompt, color);
+    console.log('Generating design with prompt:', formattedPrompt);
+
     const response = await fetch(`${apiBaseUrl}/design`, {
       method: 'POST',
       headers: {
@@ -79,33 +89,32 @@ export const handleGenerateDesign = async (
       },
       body: JSON.stringify({
         prompt: formattedPrompt,
-        negative_prompt: PROMPT_TEMPLATES.negative
+        color: color,
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to generate design');
+      const errorText = await response.text();
+      console.error('Design generation failed. Status:', response.status, 'Error:', errorText);
+      throw new Error(`Failed to generate design: ${response.statusText}`);
     }
 
-    const data = await response.json();
-    if (data.task_id) {
-      setTaskId(data.task_id);
-      await pollDesignStatus(
-        data.task_id,
-        setDesignTransform,
-        setDesignTexture,
-        setError,
-        setRetryCount,
-        saveDesignToHistory,
-        updateDesignWithHistory
-      );
-    } else {
-      throw new Error('No task ID received');
-    }
+    const data: DesignResponse = await response.json();
+    setTaskId(data.task_id);
+    
+    // Start polling for the design status
+    pollDesignStatus(
+      data.task_id,
+      setDesignTransform,
+      setDesignTexture,
+      setError,
+      setRetryCount,
+      saveDesignToHistory,
+      updateDesignWithHistory
+    );
   } catch (err) {
     console.error('Error generating design:', err);
-    setError('Failed to generate design. Please try again.');
-  } finally {
+    setError(err instanceof Error ? err.message : 'Failed to generate design');
     setIsGenerating(false);
   }
 };
