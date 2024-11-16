@@ -8,7 +8,15 @@ import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../../services/backgroundRemoval';
-import { checkLocalServer, loadPreviousDesigns, saveDesignToHistory, handleGenerateDesign, handleBackgroundToggle, handleTransparencyChange, updateDesignWithHistory } from '../../api';
+import { 
+  checkLocalServer, 
+  loadPreviousDesigns, 
+  saveDesignToHistory, 
+  handleGenerateDesign, 
+  handleBackgroundToggle, 
+  handleTransparencyChange, 
+  updateDesignWithHistory 
+} from './api';
 
 interface DesignTransform {
   hasBackground: boolean;

@@ -62,7 +62,17 @@ npm install
 
 # Install testing dependencies
 echo "Installing testing dependencies..."
-npm install --save-dev vitest @vitest/coverage-c8 @vitest/ui @testing-library/react @testing-library/jest-dom jsdom happy-dom
+npm install --save-dev \
+  vitest@latest \
+  @vitest/coverage-v8@latest \
+  @vitest/ui@latest \
+  @testing-library/react@latest \
+  @testing-library/jest-dom@latest \
+  jsdom@latest \
+  happy-dom@latest \
+  glob@^10.3.10 \
+  rimraf@^5.0.5 \
+  lru-cache@^10.2.0
 
 # Build frontend
 echo "Building frontend..."

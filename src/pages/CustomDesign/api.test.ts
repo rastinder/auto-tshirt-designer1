@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { checkLocalServer, loadPreviousDesigns, generateDesign } from './api';
+import { checkLocalServer, loadPreviousDesigns, handleGenerateDesign } from './api';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
