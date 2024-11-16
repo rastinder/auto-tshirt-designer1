@@ -57,7 +57,14 @@ pip install rembg[gpu] u2net
 
 # Install Node.js dependencies and build frontend
 echo "Installing Node.js dependencies..."
+cd "$PROJECT_ROOT"
 npm install
+
+# Install testing dependencies
+echo "Installing testing dependencies..."
+npm install --save-dev vitest @vitest/coverage-c8 @vitest/ui @testing-library/react @testing-library/jest-dom jsdom happy-dom
+
+# Build frontend
 echo "Building frontend..."
 npm run build
 
