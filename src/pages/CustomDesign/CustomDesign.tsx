@@ -9,14 +9,12 @@ import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import Draggable from 'react-draggable';
 import 'react-image-crop/dist/ReactCrop.css';
 import { 
-  removeBackground, 
-  applyTransparency 
-} from '../../services/backgroundRemoval';
-import { 
   checkLocalServer, 
   loadPreviousDesigns, 
   saveDesignToHistory, 
-  handleGenerateDesign, 
+  handleGenerateDesign,
+  removeBackground,
+  applyTransparency,
   updateDesignWithHistory 
 } from './api';
 

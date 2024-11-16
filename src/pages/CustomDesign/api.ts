@@ -27,6 +27,54 @@ export const checkLocalServer = async () => {
   }
 };
 
+export const removeBackground = async (imageUrl: string): Promise<string> => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/remove-background`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image_url: imageUrl }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to remove background: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.processed_image_url;
+  } catch (error) {
+    console.error('Background removal error:', error);
+    throw error;
+  }
+};
+
+export const applyTransparency = async (imageUrl: string, color: string, transparency: number): Promise<string> => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/apply-transparency`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        color: color,
+        transparency: transparency
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to apply transparency: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.processed_image_url;
+  } catch (error) {
+    console.error('Transparency error:', error);
+    throw error;
+  }
+};
+
 export const loadPreviousDesigns = async (setPreviousDesigns: React.Dispatch<React.SetStateAction<string[]>>, setIsLoadingHistory: React.Dispatch<React.SetStateAction<boolean>>) => {
   setIsLoadingHistory(true);
   try {
@@ -308,59 +356,7 @@ export const handleTransparencyChange = async (designTexture: string | null, sel
   }
 };
 
-export const removeBackground = async (imageData: string): Promise<Response> => {
-  try {
-    // Convert base64/URL to blob
-    let imageBlob: Blob;
-    if (imageData.startsWith('data:')) {
-      // Handle base64 data
-      const base64Data = imageData.split(',')[1];
-      const binaryStr = atob(base64Data);
-      const arr = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        arr[i] = binaryStr.charCodeAt(i);
-      }
-      imageBlob = new Blob([arr], { type: 'image/png' });
-    } else {
-      // Handle URL
-      const urlResponse = await fetch(imageData);
-      if (!urlResponse.ok) {
-        throw new Error('Failed to fetch image from URL');
-      }
-      imageBlob = await urlResponse.blob();
-    }
-
-    // Validate blob size and type
-    if (imageBlob.size === 0) {
-      throw new Error('Invalid image: Empty file');
-    }
-    if (!imageBlob.type.startsWith('image/')) {
-      throw new Error('Invalid file type: Must be an image');
-    }
-
-    // Create form data
-    const formData = new FormData();
-    formData.append('image', imageBlob, 'design.png');
-
-    // Send request to remove background
-    const response = await fetch(`${apiBaseUrl}/remove-background`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.detail || `Failed to remove background: ${response.status}`);
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Background removal error:', error);
-    throw error;
-  }
-};
-
-const formatPrompt = (basePrompt: string, color: string) => {
+export const formatPrompt = (basePrompt: string, color: string) => {
   const colorName = getColorName(color);
   return `${PROMPT_TEMPLATES.prefix} ${basePrompt} on a ${colorName} background, ${PROMPT_TEMPLATES.suffix}`;
 };
