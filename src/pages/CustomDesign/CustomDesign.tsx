@@ -21,7 +21,7 @@ interface DesignTransform {
   y: number;
 }
 
-export default function CustomDesign() {
+const CustomDesign: React.FC = () => {
   const [color, setColor] = useState('#ffffff');
   const [size, setSize] = useState('M');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,9 +34,9 @@ export default function CustomDesign() {
   const [isCropping, setIsCropping] = useState(false);
   const [crop, setCrop] = useState<CropType>();
   const [completedCrop, setCompletedCrop] = useState<CropType>();
-  const designRef = useRef<HTMLImageElement>(null);
-  const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
-  const isDragging = useRef(false);
+  const [isPickingColor, setIsPickingColor] = useState(false);
+  const [transparency, setTransparency] = useState(0);
+  const [designHistory, setDesignHistory] = useState<string[]>([]);
 
   const tshirtViews = {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
@@ -112,7 +112,10 @@ export default function CustomDesign() {
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
-            DesignService.updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, url);
+            if (designTexture) {
+              setDesignHistory(prev => [...prev, designTexture]);
+            }
+            setDesignTexture(url);
             setIsCropping(false);
           }
         });
@@ -231,6 +234,15 @@ export default function CustomDesign() {
     setDesignTransform(DesignService.getInitialDesignTransform());
     await DesignService.saveDesignToHistory(design);
   };
+
+  const handleReset = () => {
+    setDesignTransform(DesignService.getInitialDesignTransform());
+    setTransparency(0);
+  };
+
+  const designRef = useRef<HTMLImageElement>(null);
+  const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
 
   return (
     <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -505,3 +517,5 @@ export default function CustomDesign() {
     </div>
   );
 }
+
+export default CustomDesign;
