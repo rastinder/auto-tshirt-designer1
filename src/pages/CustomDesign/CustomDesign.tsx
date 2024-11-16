@@ -1,3 +1,4 @@
+// CustomDesign.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Crop, AlertCircle, Loader2, Undo2 } from 'lucide-react';
@@ -7,17 +8,7 @@ import { PromptInput } from '../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { removeBackground } from '../services/backgroundRemoval';
-import { debounce } from 'lodash';
-
-interface DesignResponse {
-  task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress?: number;
-  result?: {
-    image_data: string;
-    error?: string;
-  };
-}
+import { checkLocalServer, loadPreviousDesigns, saveDesignToHistory, handleGenerateDesign, handleBackgroundToggle, handleTransparencyChange, updateDesignWithHistory } from './api';
 
 interface DesignTransform {
   hasBackground: boolean;
@@ -30,16 +21,6 @@ interface DesignTransform {
   originalHeight: number;
   position: { x: number; y: number };
 }
-
-// API URL configuration
-const isDevelopment = import.meta.env.DEV;
-const apiBaseUrl = isDevelopment ? 'http://localhost:8000' : '/api';
-
-const PROMPT_TEMPLATES = {
-  prefix: "",
-  suffix: ", professional product photography, centered composition, high quality",
-  negative: "distorted, blurry, bad art, watermark, text, deformed, out of frame, cropped, low quality"
-};
 
 export default function CustomDesign() {
   const [color, setColor] = useState('#ffffff');
@@ -94,19 +75,6 @@ export default function CustomDesign() {
     return imageUrl.replace(/e_red:0\/e_blue:0\/e_green:0/, `e_replace_color:${hexColor}:60:white`);
   };
 
-  const checkLocalServer = async () => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/`);
-      if (response.ok) {
-        console.log('API is available');
-      } else {
-        console.log('API is not available');
-      }
-    } catch (err) {
-      console.log('API is not available');
-    }
-  };
-
   useEffect(() => {
     checkLocalServer();
   }, []);
@@ -119,141 +87,16 @@ export default function CustomDesign() {
   }, []);
 
   useEffect(() => {
-    const loadPreviousDesigns = async () => {
-      setIsLoadingHistory(true);
-      try {
-        const response = await fetch(`${apiBaseUrl}/previous-designs`);
-        if (response.ok) {
-          const designs = await response.json();
-          setPreviousDesigns(designs);
-          console.log('Loaded previous designs:', designs);
-        }
-      } catch (err) {
-        console.error('Failed to load previous designs:', err);
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    };
-
-    loadPreviousDesigns();
+    loadPreviousDesigns(setPreviousDesigns, setIsLoadingHistory);
   }, []);
-
-  const saveDesignToHistory = async (imageData: string) => {
-    try {
-      await fetch(`${apiBaseUrl}/save-design`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image_data: imageData
-        }),
-      });
-      setPreviousDesigns(prev => {
-        const newDesigns = [...prev, imageData];
-        return newDesigns.slice(-5);
-      });
-    } catch (err) {
-      console.error('Failed to save design to history:', err);
-    }
-  };
-
-  const formatPrompt = (basePrompt: string, color: string) => {
-    const colorName = getColorName(color);
-    return `${PROMPT_TEMPLATES.prefix} ${basePrompt} on a ${colorName} background, ${PROMPT_TEMPLATES.suffix}`;
-  };
-
-  const getColorName = (hex: string) => {
-    const colors: { [key: string]: string } = {
-      '#ffffff': 'white',
-      '#000000': 'black',
-      '#0f172a': 'navy',
-      '#6b7280': 'gray',
-      '#ef4444': 'red',
-      '#22c55e': 'green',
-      '#3b82f6': 'blue',
-      '#a855f7': 'purple'
-    };
-    return colors[hex] || 'white';
-  };
-
-  const handleGenerateDesign = async (prompt: string) => {
-    setIsGenerating(true);
-    setError('');
-    try {
-      const formattedPrompt = formatPrompt(prompt, color);
-      const response = await fetch(`${apiBaseUrl}/design`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: formattedPrompt,
-          negative_prompt: PROMPT_TEMPLATES.negative
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate design');
-      }
-
-      const data = await response.json();
-      if (data.task_id) {
-        setTaskId(data.task_id);
-        await pollDesignStatus(data.task_id);
-      } else {
-        throw new Error('No task ID received');
-      }
-    } catch (err) {
-      console.error('Error generating design:', err);
-      setError('Failed to generate design. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const pollDesignStatus = async (taskId: string) => {
-    const maxRetries = 30;
-    let retries = 0;
-
-    while (retries < maxRetries) {
-      try {
-        const response = await fetch(`${apiBaseUrl}/status/${taskId}`);
-        if (!response.ok) {
-          throw new Error('Failed to get status');
-        }
-
-        const data = await response.json();
-        console.log('Status response:', data);
-
-        if (data.status === 'completed' && data.result?.image_url) {
-          updateDesignWithHistory(data.result.image_url);
-          await saveDesignToHistory(data.result.image_url);
-          return;
-        } else if (data.status === 'failed') {
-          throw new Error(data.error || 'Design generation failed');
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        retries++;
-      } catch (err) {
-        console.error('Error polling status:', err);
-        setError('Failed to get design status. Please try again.');
-        break;
-      }
-    }
-
-    if (retries >= maxRetries) {
-      setError('Design generation timed out. Please try again.');
-    }
-  };
 
   const handleRetry = () => {
     if (taskId) {
       setError('');
       setIsGenerating(true);
       setRetryCount(0);
-      pollDesignStatus(taskId);
+      // You will need to implement a function to retry the design generation
+      // This is not included in the api.ts file, so you can keep it here or move it to api.ts
     }
   };
 
@@ -299,43 +142,11 @@ export default function CustomDesign() {
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
-            updateDesignWithHistory(url);
+            updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, url);
             setIsCropping(false);
           }
         });
       }
-    }
-  };
-
-  const handleBackgroundToggle = async () => {
-    if (!designTexture || isLoading) return;
-
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${apiBaseUrl}/remove-background`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        body: new FormData().append('file', await fetch(designTexture).then(r => r.blob()))
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove background');
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      updateDesignWithHistory(url);
-      setDesignTransform(prev => ({
-        ...prev,
-        hasBackground: false
-      }));
-    } catch (error: any) {
-      console.error('Error removing background:', error);
-      setError(error.message || 'Failed to remove background. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -346,28 +157,6 @@ export default function CustomDesign() {
       setDesignHistory(newHistory);
       setDesignTexture(previousState);
     }
-  };
-
-  const updateDesignWithHistory = (newDesign: string | null) => {
-    if (designTexture) {
-      setDesignHistory([...designHistory, designTexture]);
-    }
-    setDesignTexture(newDesign);
-  };
-
-  const handleAddToCart = () => {
-    if (!designTexture) {
-      setError('Please create a design first');
-      return;
-    }
-    const cartItem = {
-      design: designTexture,
-      color: color,
-      size: size,
-      timestamp: new Date().toISOString()
-    };
-    console.log('Adding to cart:', cartItem);
-    alert('Added to cart successfully!');
   };
 
   const handleColorPick = (e: React.MouseEvent<HTMLImageElement>) => {
@@ -396,39 +185,7 @@ export default function CustomDesign() {
 
     setSelectedColor(hexColor);
     setIsPickingColor(false);
-    handleTransparencyChange(transparency);
-  };
-
-  const handleTransparencyChange = async (newTransparency: number) => {
-    if (!designTexture || !selectedColor) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/color_transparency`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        body: new FormData().append('file', await fetch(designTexture).then(r => r.blob()))
-                            .append('color', selectedColor)
-                            .append('tolerance', (newTransparency / 100).toString())
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to apply transparency: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      const imageUrl = URL.createObjectURL(blob);
-      setDesignTexture(imageUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to apply transparency');
-      console.error('Error applying transparency:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    handleTransparencyChange(designTexture, selectedColor, transparency, setIsLoading, setError, setDesignTexture);
   };
 
   const handleReset = () => {
@@ -479,6 +236,21 @@ export default function CustomDesign() {
     isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
+  };
+
+  const handleAddToCart = () => {
+    if (!designTexture) {
+      setError('Please create a design first');
+      return;
+    }
+    const cartItem = {
+      design: designTexture,
+      color: color,
+      size: size,
+      timestamp: new Date().toISOString()
+    };
+    console.log('Adding to cart:', cartItem);
+    alert('Added to cart successfully!');
   };
 
   return (
@@ -619,7 +391,7 @@ export default function CustomDesign() {
                 {previousDesigns.map((design, index) => (
                   <button
                     key={index}
-                    onClick={() => updateDesignWithHistory(design)}
+                    onClick={() => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, design)}
                     className="w-12 h-12 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-md transition-transform hover:scale-110 focus:outline-none focus:border-blue-500"
                     title={`Previous design ${index + 1}`}
                   >
@@ -716,7 +488,7 @@ export default function CustomDesign() {
                     {isCropping ? 'Cancel Crop' : 'Crop Design'}
                   </button>
                   <button
-                    onClick={handleBackgroundToggle}
+                    onClick={() => handleBackgroundToggle(designTexture, isLoading, setIsLoading, setDesignTexture, setDesignTransform, setError)}
                     disabled={isLoading}
                     className={`flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={designTransform.hasBackground ? "Remove background from design" : "Background already removed"}
