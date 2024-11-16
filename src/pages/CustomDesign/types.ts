@@ -22,6 +22,15 @@ export interface DesignTransform {
   position: { x: number; y: number };
 }
 
+export interface CropConfig {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  unit: '%' | 'px';
+  aspect?: number;
+}
+
 export interface CartItem {
   design: string;
   color: string;

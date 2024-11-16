@@ -308,6 +308,30 @@ export const handleTransparencyChange = async (designTexture: string | null, sel
   }
 };
 
+export const removeBackground = async (imageData: string): Promise<Response> => {
+  // Convert base64/URL to blob
+  let imageBlob: Blob;
+  if (imageData.startsWith('data:')) {
+    // Handle base64 data
+    const base64Response = await fetch(imageData);
+    imageBlob = await base64Response.blob();
+  } else {
+    // Handle URL
+    const urlResponse = await fetch(imageData);
+    imageBlob = await urlResponse.blob();
+  }
+
+  // Create form data
+  const formData = new FormData();
+  formData.append('image', imageBlob, 'design.png');
+
+  // Send request to remove background
+  return fetch(`${apiBaseUrl}/remove-background`, {
+    method: 'POST',
+    body: formData,
+  });
+};
+
 const formatPrompt = (basePrompt: string, color: string) => {
   const colorName = getColorName(color);
   return `${PROMPT_TEMPLATES.prefix} ${basePrompt} on a ${colorName} background, ${PROMPT_TEMPLATES.suffix}`;
