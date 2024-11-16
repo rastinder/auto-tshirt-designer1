@@ -125,14 +125,37 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
       console.log('Status response:', data);
 
       if (data.status === 'completed') {
-        const imageSource = data.result?.image_url || data.result?.image_data;
+        // First try to get the image from the result object
+        let imageSource = data.result?.image_url;
+        
+        // If there's no image_url, try to get the base64 data
+        if (!imageSource && data.result?.image_data) {
+          // If it's not already a data URL, convert it to one
+          imageSource = data.result.image_data.startsWith('data:') 
+            ? data.result.image_data 
+            : `data:image/png;base64,${data.result.image_data}`;
+        }
+
         if (imageSource) {
-          updateDesignWithHistory(imageSource);
-          await saveDesignToHistory(imageSource);
-          setDesignTransform(prev => ({
-            ...prev,
-            hasBackground: false
-          }));
+          // Create a new Image object to verify the image loads correctly
+          const img = new Image();
+          img.onload = async () => {
+            updateDesignWithHistory(imageSource);
+            await saveDesignToHistory(imageSource);
+            setDesignTransform(prev => ({
+              ...prev,
+              hasBackground: true,
+              width: img.width,
+              height: img.height,
+              originalWidth: img.width,
+              originalHeight: img.height,
+              position: { x: 200, y: 200 } // Center the image on the t-shirt
+            }));
+          };
+          img.onerror = () => {
+            setError('Failed to load the generated image. Please try again.');
+          };
+          img.src = imageSource;
           return;
         } else {
           throw new Error('No image data received');
@@ -143,6 +166,7 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
 
       await new Promise(resolve => setTimeout(resolve, 1000));
       retries++;
+      setRetryCount(retries);
     } catch (err) {
       console.error('Error polling status:', err);
       setError('Failed to get design status. Please try again.');

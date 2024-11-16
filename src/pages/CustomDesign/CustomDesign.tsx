@@ -294,117 +294,32 @@ export default function CustomDesign() {
             {designTexture && !isCropping && (
               <div
                 ref={designRef}
-                className="absolute top-0 left-0 cursor-move"
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-move"
                 onMouseDown={handleDragStart}
+                style={{
+                  width: `${designTransform.width}px`,
+                  height: `${designTransform.height}px`,
+                  transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
+                }}
               >
                 <div
-                  className="relative"
+                  className="relative w-full h-full"
                   style={{
-                    width: designTransform.width,
-                    height: designTransform.height,
-                    transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px)`
+                    transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
+                    transition: 'transform 0.1s ease',
                   }}
                 >
-                  <div
-                    className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    style={{ cursor: 'default' }}
-                  >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDesignTransform(prev => ({
-                          ...prev,
-                          rotation: prev.rotation - 5
-                        }));
-                      }}
-                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                    >
-                      ↺
-                    </button>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      value={designTransform.rotation}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setDesignTransform(prev => ({
-                          ...prev,
-                          rotation: parseInt(e.target.value)
-                        }));
-                      }}
-                      className="w-32 mx-0.5 h-0.5"
-                      style={{
-                        WebkitAppearance: 'none',
-                        appearance: 'none',
-                        backgroundColor: '#e5e7eb',
-                        borderRadius: '9999px',
-                        cursor: 'pointer',
-                        outline: 'none'
-                      }}
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDesignTransform(prev => ({
-                          ...prev,
-                          rotation: prev.rotation + 5
-                        }));
-                      }}
-                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                    >
-                      ↻
-                    </button>
-                    <div className="w-px h-4 bg-gray-200 mx-1" />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRestore();
-                      }}
-                      className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
-                      title="Reset size and rotation"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
-                      transition: 'transform 0.1s ease',
+                  <img
+                    src={designTexture}
+                    alt="Design"
+                    className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                    onClick={handleColorPick}
+                    onError={(e) => {
+                      console.error('Failed to load design image');
+                      setError('Failed to load the design image. Please try again.');
+                      e.currentTarget.style.display = 'none';
                     }}
-                    className="cursor-move relative"
-                  >
-                    <img
-                      src={designTexture}
-                      alt="Design"
-                      className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                      onClick={handleColorPick}
-                    />
-                  </div>
-
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
-                    <button
-                      onClick={() => handleResize('decrease')}
-                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                    >
-                      -
-                    </button>
-                    <div className="text-xs text-gray-500">
-                      {Math.round(designTransform.scale * 100)}%
-                    </div>
-                    <button
-                      onClick={() => handleResize('increase')}
-                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                    >
-                      +
-                    </button>
-                  </div>
+                  />
                 </div>
               </div>
             )}
