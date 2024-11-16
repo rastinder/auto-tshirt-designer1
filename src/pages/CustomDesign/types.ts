@@ -13,13 +13,19 @@ export interface DesignResponse {
 export interface DesignTransform {
   hasBackground: boolean;
   texture: string | null;
-  width: number;
-  height: number;
   rotation: number;
   scale: number;
-  originalWidth: number;
-  originalHeight: number;
   position: { x: number; y: number };
+  x: number;
+  y: number;
+}
+
+export interface DesignHistoryItem {
+  id: string;
+  image_data: string;
+  prompt?: string;
+  created_at: string;
+  transform?: DesignTransform;
 }
 
 export interface CropConfig {

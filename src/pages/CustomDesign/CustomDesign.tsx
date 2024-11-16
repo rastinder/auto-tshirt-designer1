@@ -50,22 +50,32 @@ const CustomDesign: React.FC = () => {
   };
 
   useEffect(() => {
-    const loadDesigns = async () => {
+    const checkAPI = async () => {
+      try {
+        const isHealthy = await DesignService.checkHealth();
+        if (!isHealthy) {
+          setError('API service is temporarily unavailable. Some features may be limited.');
+        }
+      } catch (error) {
+        console.error('API health check failed:', error);
+        setError('Unable to connect to the design service. Please try again later.');
+      }
+    };
+
+    const loadHistory = async () => {
       setIsLoadingHistory(true);
       try {
-        const designs = await DesignService.loadPreviousDesigns();
-        setPreviousDesigns(designs);
+        const history = await DesignService.loadDesignHistory();
+        setPreviousDesigns(history.map(item => item.image_data));
       } catch (error) {
-        console.error('Failed to load designs:', error);
+        console.error('Failed to load design history:', error);
       } finally {
         setIsLoadingHistory(false);
       }
     };
-    loadDesigns();
-  }, []);
 
-  useEffect(() => {
-    DesignService.checkHealth();
+    checkAPI();
+    loadHistory();
   }, []);
 
   const handleRetry = () => {
@@ -147,55 +157,81 @@ const CustomDesign: React.FC = () => {
   };
 
   const handleGenerate = async (prompt: string) => {
+    if (!prompt.trim()) {
+      setError('Please enter a design prompt');
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
 
     try {
       const designUrl = await DesignService.generateDesign(prompt);
-      setDesignTexture(designUrl);
-      await DesignService.saveDesignToHistory(designUrl);
-      setPreviousDesigns(prev => [...prev, designUrl]);
-      setDesignTransform(DesignService.getInitialDesignTransform());
+      if (designUrl) {
+        setDesignTexture(designUrl);
+        await DesignService.saveDesignToHistory(designUrl);
+        setPreviousDesigns(prev => [...prev, designUrl]);
+        setDesignTransform(DesignService.getInitialDesignTransform());
+      } else {
+        throw new Error('Failed to generate design');
+      }
     } catch (error) {
       console.error('Error generating design:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate design');
+      setError(error instanceof Error ? error.message : 'Failed to generate design. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleBackgroundToggle = async () => {
-    if (!designTexture || isLoading) return;
+    if (!designTexture) {
+      setError('Please generate a design first');
+      return;
+    }
+
+    if (isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       const processedImageUrl = await DesignService.removeBackground(designTexture);
-      setDesignTexture(processedImageUrl);
-      setDesignTransform(prev => ({
-        ...prev,
-        hasBackground: false
-      }));
+      if (processedImageUrl) {
+        setDesignTexture(processedImageUrl);
+        setDesignTransform(prev => ({
+          ...prev,
+          hasBackground: false
+        }));
+      } else {
+        throw new Error('Failed to process image');
+      }
     } catch (error) {
       console.error('Background removal failed:', error);
-      setError('Failed to remove background. Please try again.');
+      setError('Failed to remove background. Please try again later.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleTransparencyChange = async (transparency: number) => {
-    if (!designTexture) return;
+    if (!designTexture) {
+      setError('Please generate a design first');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const processedImageUrl = await DesignService.adjustTransparency(designTexture, transparency);
-      setDesignTexture(processedImageUrl);
+      if (processedImageUrl) {
+        setDesignTexture(processedImageUrl);
+      } else {
+        throw new Error('Failed to process image');
+      }
     } catch (error) {
       console.error('Transparency change failed:', error);
-      setError('Failed to change transparency. Please try again.');
+      setError('Failed to adjust transparency. Please try again later.');
     } finally {
       setIsLoading(false);
     }

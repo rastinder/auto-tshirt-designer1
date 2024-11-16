@@ -2,13 +2,13 @@
 // Please use DesignService from '../../services/designService' directly.
 
 import { DesignService } from '../../services/designService';
-import { DesignTransform } from './types';
+import { DesignTransform, DesignHistoryItem } from './types';
 
 // Proxy to DesignService for backward compatibility
 export const generateDesign = DesignService.generateDesign;
 export const removeBackground = DesignService.removeBackground;
 export const adjustTransparency = DesignService.adjustTransparency;
-export const loadDesigns = DesignService.loadPreviousDesigns;
+export const loadDesigns = DesignService.loadDesignHistory;
 
 export const saveDesign = async (design: {
   imageUrl: string;
@@ -28,10 +28,10 @@ export const checkLocalServer = async (): Promise<void> => {
     if (isHealthy) {
       console.log('API is available');
     } else {
-      console.log('API is not available');
+      console.error('API is not available - falling back to backup endpoints');
     }
   } catch (error) {
-    console.log('API is not available');
+    console.error('API connection error:', error);
   }
 };
 
@@ -41,7 +41,8 @@ export const loadPreviousDesigns = async (
 ): Promise<void> => {
   try {
     setLoading(true);
-    const designs = await loadDesigns();
+    const history = await loadDesigns();
+    const designs = history.map(item => item.image_data);
     setDesigns(designs);
   } catch (error) {
     console.error('Error loading previous designs:', error);
@@ -60,11 +61,11 @@ export const handleGenerateDesign = async (
   try {
     setIsGenerating(true);
     setError(null);
-    const designImage = await generateDesign(prompt);
-    setDesignTexture(designImage);
+    const designTexture = await generateDesign(prompt);
+    setDesignTexture(designTexture);
   } catch (error) {
     console.error('Error generating design:', error);
-    setError('Failed to generate design. Please try again.');
+    setError(error instanceof Error ? error.message : 'Failed to generate design');
     setDesignTexture(null);
   } finally {
     setIsGenerating(false);

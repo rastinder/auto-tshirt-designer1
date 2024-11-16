@@ -148,6 +148,109 @@ PORT=8000
 HF_API_KEY=your_huggingface_api_key
 ```
 
+## 🧪 Testing
+
+### Test Dashboard
+
+Access the test dashboard at `https://aitshirts.in/test` for a visual interface showing:
+- System Status
+- Worker Status
+- Queue Information
+- Available Test Endpoints
+- Test Results
+
+### API Test Commands
+
+#### 1. View Test Dashboard
+```bash
+curl https://aitshirts.in/test
+```
+
+#### 2. Run All Tests
+```bash
+curl https://aitshirts.in/test/run-all
+```
+
+#### 3. Individual Test Commands
+
+Health Check:
+```bash
+curl https://aitshirts.in/api/test/health
+```
+
+Design Generation Test:
+```bash
+curl -X POST https://aitshirts.in/api/test/design \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "test design", "test_mode": true}'
+```
+
+Background Removal Test:
+```bash
+curl -X POST https://aitshirts.in/api/test/background-removal \
+     -H "Content-Type: application/json" \
+     -d '{"image_url": "https://example.com/image.png", "test_mode": true}'
+```
+
+Worker Status:
+```bash
+curl https://aitshirts.in/api/test/workers
+```
+
+### Test Response Examples
+
+#### Health Check Response
+```json
+{
+    "status": "ok",
+    "timestamp": "2024-01-20T12:00:00Z"
+}
+```
+
+#### Worker Status Response
+```json
+{
+    "workers": {
+        "connected": 2,
+        "ids": ["worker1", "worker2"]
+    },
+    "queue": {
+        "size": 0,
+        "pending": 0,
+        "processing": 0
+    }
+}
+```
+
+#### Design Generation Test Response
+```json
+{
+    "status": "success",
+    "task_id": "test-123",
+    "result": {
+        "image_url": "/images/test-image.png",
+        "metadata": {
+            "prompt": "test design",
+            "test": true
+        }
+    }
+}
+```
+
+### Automated Testing
+
+For Windows users, run the test script:
+```cmd
+cd server
+test_full_api.bat
+```
+
+For PowerShell users (detailed output):
+```powershell
+cd server
+.\test_full_api.ps1
+```
+
 ## 🛠️ Development
 
 ### Available Scripts
