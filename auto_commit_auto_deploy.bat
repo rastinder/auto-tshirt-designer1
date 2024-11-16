@@ -51,9 +51,9 @@ echo === Success! All changes have been committed and pushed ===
 echo.
 
 :: Build the remote command string for plink
-set "remote_command=sudo su -c \"cd .. && echo 'Cleaning up previous installation...' && pm2 delete all 2>/dev/null || true && [ -d 'auto-tshirt-designer1' ] && rm -rf auto-tshirt-designer1 && echo 'Cloning repository...' && git clone https://github.com/rastinder/auto-tshirt-designer1.git && cd auto-tshirt-designer1 && echo 'Starting deployment...' && chmod +x deploy.sh && ./deploy.sh\""
+set "remote_command=sudo su -c \"cd .. && echo 'Cleaning up previous installation...' && pm2 delete all 2>/dev/null || true && [ -d 'auto-tshirt-designer1' ] && rm -rf auto-tshirt-designer1 && echo 'Cloning repository...' && git clone https://github.com/rastinder/auto-tshirt-designer1.git && cd auto-tshirt-designer1 && echo 'Starting deployment...' && chmod +x deploy.sh && ./deploy.sh && exit\""
 
-:: Execute the command on the remote server using plink
+:: Execute the command on the remote server using plink (modified)
 echo.
 echo Deploying to remote server...
 "C:\Program Files\PuTTY\plink.exe" -i "C:\Users\Administrator\Downloads\oracle.ppk" ubuntu@141.148.223.177 %remote_command%
