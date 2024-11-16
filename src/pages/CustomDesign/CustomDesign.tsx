@@ -8,14 +8,8 @@ import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import Draggable from 'react-draggable';
 import 'react-image-crop/dist/ReactCrop.css';
-import { 
-  checkLocalServer, 
-  loadPreviousDesigns, 
-  saveDesignToHistory, 
-  handleGenerateDesign,
-  removeBackground,
-  updateDesignWithHistory 
-} from './api';
+import { apiService } from '../../services/apiService';
+import { DesignService } from '../../services/designService';
 
 interface DesignTransform {
   hasBackground: boolean;
@@ -77,18 +71,22 @@ export default function CustomDesign() {
   };
 
   useEffect(() => {
-    checkLocalServer();
+    apiService.checkHealth();
   }, []);
 
   useEffect(() => {
-    return () => {
-      setIsGenerating(false);
-      setTaskId(null);
+    const loadDesigns = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const designs = await DesignService.loadPreviousDesigns();
+        setPreviousDesigns(designs);
+      } catch (error) {
+        console.error('Failed to load designs:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
     };
-  }, []);
-
-  useEffect(() => {
-    loadPreviousDesigns(setPreviousDesigns, setIsLoadingHistory);
+    loadDesigns();
   }, []);
 
   const handleRetry = () => {
@@ -136,7 +134,7 @@ export default function CustomDesign() {
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
-            updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, url);
+            DesignService.updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, url);
             setIsCropping(false);
           }
         });
@@ -169,21 +167,21 @@ export default function CustomDesign() {
   };
 
   const handleGenerate = async (prompt: string) => {
-    await handleGenerateDesign(
-      prompt,
-      color,
-      setTaskId,
-      setError,
-      setIsGenerating,
-      setDesignTransform,
-      setDesignTexture,
-      setRetryCount,
-      saveDesignToHistory,
-      (newDesign: string | null) => {
-        updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, newDesign);
-        setIsGenerating(false); // Ensure we reset the generating state
-      }
-    );
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const designUrl = await DesignService.generateDesign(prompt);
+      setDesignTexture(designUrl);
+      await DesignService.saveDesignToHistory(designUrl);
+      
+      setDesignTransform(DesignService.getInitialDesignTransform());
+    } catch (error) {
+      console.error('Error generating design:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate design');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleBackgroundToggle = async () => {
@@ -193,7 +191,7 @@ export default function CustomDesign() {
     setError(null);
 
     try {
-      const processedImageUrl = await removeBackground(designTexture);
+      const processedImageUrl = await DesignService.removeBackground(designTexture);
       setDesignTexture(processedImageUrl);
       setDesignTransform(prev => ({
         ...prev,
@@ -202,6 +200,22 @@ export default function CustomDesign() {
     } catch (error) {
       console.error('Background removal failed:', error);
       setError('Failed to remove background. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTransparencyChange = async (transparency: number) => {
+    if (!designTexture) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const processedImageUrl = await DesignService.adjustTransparency(designTexture, transparency);
+      setDesignTexture(processedImageUrl);
+    } catch (error) {
+      console.error('Transparency change failed:', error);
+      setError('Failed to change transparency. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -234,22 +248,6 @@ export default function CustomDesign() {
     isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
-  };
-
-  const handleTransparencyChange = async (transparency: number) => {
-    if (!designTexture) return;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const processedImageUrl = await removeBackground(designTexture, transparency);
-      setDesignTexture(processedImageUrl);
-    } catch (error) {
-      console.error('Transparency change failed:', error);
-      setError('Failed to change transparency. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -454,7 +452,7 @@ export default function CustomDesign() {
                     key={index}
                     onClick={() => {
                       setDesignTexture(design);
-                      saveDesignToHistory(design, setDesignHistory);
+                      DesignService.saveDesignToHistory(design, setDesignHistory);
                     }}
                     className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
                     title={`Load previous design ${previousDesigns.length - index}`}
