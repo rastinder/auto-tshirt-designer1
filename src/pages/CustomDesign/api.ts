@@ -137,6 +137,11 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
         // First try to get the image from the result object
         let imageSource = data.result?.image_url;
         
+        // If it's a relative URL, prepend the API base URL
+        if (imageSource && imageSource.startsWith('/')) {
+          imageSource = `${apiBaseUrl}${imageSource}`;
+        }
+        
         // If there's no image_url, try to get the base64 data
         if (!imageSource && data.result?.image_data) {
           // If it's not already a data URL, convert it to one
@@ -146,9 +151,12 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
         }
 
         if (imageSource) {
+          console.log('Setting image source:', imageSource);
           // Create a new Image object to verify the image loads correctly
           const img = new Image();
           img.onload = async () => {
+            console.log('Image loaded successfully');
+            setDesignTexture(imageSource); // Directly set the design texture
             updateDesignWithHistory(imageSource);
             await saveDesignToHistory(imageSource);
             setDesignTransform(prev => ({
@@ -158,10 +166,11 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
               height: img.height,
               originalWidth: img.width,
               originalHeight: img.height,
-              position: { x: 200, y: 200 } // Center the image on the t-shirt
+              position: { x: 0, y: 0 } // Start from top-left
             }));
           };
-          img.onerror = () => {
+          img.onerror = (e) => {
+            console.error('Failed to load image:', e);
             setError('Failed to load the generated image. Please try again.');
           };
           img.src = imageSource;
