@@ -8,69 +8,106 @@ const PROMPT_TEMPLATES: PromptTemplates = {
 };
 
 export class DesignService {
-  static async generateDesign(prompt: string): Promise<string> {
-    const fullPrompt = `${PROMPT_TEMPLATES.prefix}${prompt}${PROMPT_TEMPLATES.suffix}`;
-    const response = await apiService.post<DesignResponse>('/generate', {
-      prompt: fullPrompt,
-      negative_prompt: PROMPT_TEMPLATES.negative,
-      num_inference_steps: 30,
-      guidance_scale: 7.5,
-    });
+  static getInitialDesignTransform(): DesignTransform {
+    return {
+      hasBackground: true,
+      texture: null,
+      rotation: 0,
+      scale: 1,
+      position: { x: 0, y: 0 },
+      x: 0,
+      y: 0
+    };
+  }
 
-    if (!response.result?.image_data) {
-      throw new Error('No image data received from the server');
+  static async checkHealth(): Promise<boolean> {
+    try {
+      await apiService.get('/health');
+      return true;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
     }
+  }
 
-    return response.result.image_data;
+  static async generateDesign(prompt: string): Promise<string> {
+    try {
+      const fullPrompt = `${PROMPT_TEMPLATES.prefix}${prompt}${PROMPT_TEMPLATES.suffix}`;
+      const response = await apiService.post<DesignResponse>('/generate', {
+        prompt: fullPrompt,
+        negative_prompt: PROMPT_TEMPLATES.negative,
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+      });
+
+      if (!response?.result?.image_data) {
+        throw new Error('No image data received from the server');
+      }
+
+      return response.result.image_data;
+    } catch (error) {
+      console.error('Error generating design:', error);
+      throw new Error('Failed to generate design');
+    }
   }
 
   static async removeBackground(
     imageBase64: string,
     transparency: number = 0
   ): Promise<string> {
-    // Remove data:image/... prefix if present
-    const base64Data = imageBase64.includes('base64,')
-      ? imageBase64.split('base64,')[1]
-      : imageBase64;
+    try {
+      // Remove data:image/... prefix if present
+      const base64Data = imageBase64.includes('base64,')
+        ? imageBase64.split('base64,')[1]
+        : imageBase64;
 
-    const response = await apiService.post<{ image: string }>('/remove-background', {
-      image: base64Data,
-      transparency,
-      model: "u2net",
-      return_mask: false
-    });
+      const response = await apiService.post<{ image: string }>('/remove-background', {
+        image: base64Data,
+        transparency,
+        model: "u2net",
+        return_mask: false
+      });
 
-    if (!response.image) {
-      throw new Error('No processed image received from the server');
+      if (!response?.image) {
+        throw new Error('No processed image received from the server');
+      }
+
+      return response.image;
+    } catch (error) {
+      console.error('Error removing background:', error);
+      throw new Error('Failed to remove background');
     }
-
-    return response.image;
   }
 
   static async adjustTransparency(
     imageBase64: string,
     transparency: number
   ): Promise<string> {
-    const base64Data = imageBase64.includes('base64,')
-      ? imageBase64.split('base64,')[1]
-      : imageBase64;
+    try {
+      const base64Data = imageBase64.includes('base64,')
+        ? imageBase64.split('base64,')[1]
+        : imageBase64;
 
-    const response = await apiService.post<{ image: string }>('/adjust-transparency', {
-      image: base64Data,
-      transparency
-    });
+      const response = await apiService.post<{ image: string }>('/adjust-transparency', {
+        image: base64Data,
+        transparency
+      });
 
-    if (!response.image) {
-      throw new Error('No processed image received from the server');
+      if (!response?.image) {
+        throw new Error('No processed image received from the server');
+      }
+
+      return response.image;
+    } catch (error) {
+      console.error('Error adjusting transparency:', error);
+      throw new Error('Failed to adjust transparency');
     }
-
-    return response.image;
   }
 
   static async loadPreviousDesigns(): Promise<string[]> {
     try {
       const response = await apiService.get<string[]>('/designs/history');
-      return response;
+      return response || [];
     } catch (error) {
       console.error('Failed to load design history:', error);
       return [];
@@ -82,6 +119,7 @@ export class DesignService {
       await apiService.post('/designs/save', { image_data: imageData });
     } catch (error) {
       console.error('Failed to save design to history:', error);
+      throw new Error('Failed to save design');
     }
   }
 
@@ -99,20 +137,8 @@ export class DesignService {
         reader.readAsDataURL(blob);
       });
     } catch (error) {
-      console.error('Failed to convert URL to base64:', error);
-      throw new Error('Failed to process image. Please try again.');
+      console.error('Error converting URL to base64:', error);
+      throw new Error('Failed to convert image');
     }
-  }
-
-  static getInitialDesignTransform(): DesignTransform {
-    return {
-      hasBackground: true,
-      texture: null,
-      rotation: 0,
-      scale: 1,
-      position: { x: 0, y: 0 },
-      x: 0,
-      y: 0
-    };
   }
 }

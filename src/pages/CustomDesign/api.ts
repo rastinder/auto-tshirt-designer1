@@ -18,11 +18,4 @@ export const saveDesign = async (design: {
   return 'success';
 };
 
-export const healthCheck = async (): Promise<boolean> => {
-  try {
-    await DesignService.loadPreviousDesigns();
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
+export const healthCheck = DesignService.checkHealth;
