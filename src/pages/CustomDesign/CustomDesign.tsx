@@ -8,8 +8,8 @@ import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import Draggable from 'react-draggable';
 import 'react-image-crop/dist/ReactCrop.css';
-import { apiService } from '../../services/apiService';
 import { DesignService } from '../../services/designService';
+import { DesignTransform } from './types';
 
 interface DesignTransform {
   hasBackground: boolean;
@@ -28,35 +28,14 @@ export default function CustomDesign() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [designTexture, setDesignTexture] = useState<string | null>(null);
-  const [designTransform, setDesignTransform] = useState<DesignTransform>({
-    hasBackground: true,
-    texture: null,
-    rotation: 0,
-    scale: 1,
-    position: { x: 0, y: 0 },
-    x: 0,
-    y: 0
-  });
+  const [designTransform, setDesignTransform] = useState<DesignTransform>(DesignService.getInitialDesignTransform());
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
-  const [designHistory, setDesignHistory] = useState<string[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [taskId, setTaskId] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [viewMode, setViewMode] = useState('hanging');
   const [isCropping, setIsCropping] = useState(false);
-  const [transparency, setTransparency] = useState(0);
-  const [crop, setCrop] = useState<CropType>({
-    unit: '%',
-    x: 0,
-    y: 0,
-    width: 100,
-    height: 100
-  });
-
-  const designRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const dragStartPosition = useRef({ x: 0, y: 0 });
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const [crop, setCrop] = useState<CropType>();
+  const [completedCrop, setCompletedCrop] = useState<CropType>();
+  const designRef = useRef<HTMLImageElement>(null);
+  const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
   const isDragging = useRef(false);
 
   const tshirtViews = {
@@ -69,10 +48,6 @@ export default function CustomDesign() {
     const hexColor = color.replace('#', '');
     return imageUrl.replace(/e_red:0\/e_blue:0\/e_green:0/, `e_replace_color:${hexColor}:60:white`);
   };
-
-  useEffect(() => {
-    apiService.checkHealth();
-  }, []);
 
   useEffect(() => {
     const loadDesigns = async () => {
@@ -89,11 +64,14 @@ export default function CustomDesign() {
     loadDesigns();
   }, []);
 
+  useEffect(() => {
+    DesignService.checkHealth();
+  }, []);
+
   const handleRetry = () => {
-    if (taskId) {
+    if (designTexture) {
       setError('');
       setIsGenerating(true);
-      setRetryCount(0);
       // You will need to implement a function to retry the design generation
       // This is not included in the api.ts file, so you can keep it here or move it to api.ts
     }
@@ -108,9 +86,9 @@ export default function CustomDesign() {
   };
 
   const handleCropComplete = (crop: CropType, percentCrop: CropType) => {
-    if (imageRef.current && crop.width && crop.height) {
+    if (designRef.current && crop.width && crop.height) {
       const canvas = document.createElement('canvas');
-      const image = imageRef.current;
+      const image = designRef.current;
       const scaleX = image.naturalWidth / image.width;
       const scaleY = image.naturalHeight / image.height;
 
@@ -143,10 +121,9 @@ export default function CustomDesign() {
   };
 
   const handleUndo = () => {
-    if (designHistory.length > 0) {
-      const previousState = designHistory[designHistory.length - 1];
-      const newHistory = designHistory.slice(0, -1);
-      setDesignHistory(newHistory);
+    if (designTexture) {
+      const previousState = designTexture;
+      setDesignTexture(null);
       setDesignTexture(previousState);
     }
   };
@@ -174,7 +151,7 @@ export default function CustomDesign() {
       const designUrl = await DesignService.generateDesign(prompt);
       setDesignTexture(designUrl);
       await DesignService.saveDesignToHistory(designUrl);
-      
+      setPreviousDesigns(prev => [...prev, designUrl]);
       setDesignTransform(DesignService.getInitialDesignTransform());
     } catch (error) {
       console.error('Error generating design:', error);
@@ -226,7 +203,6 @@ export default function CustomDesign() {
     if (designRef.current) {
       const rect = designRef.current.getBoundingClientRect();
       dragStartPosition.current = { x: e.clientX, y: e.clientY };
-      dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       isDragging.current = true;
       document.addEventListener('mousemove', handleDragMove);
       document.addEventListener('mouseup', handleDragEnd);
@@ -235,8 +211,8 @@ export default function CustomDesign() {
 
   const handleDragMove = (e: MouseEvent) => {
     if (isDragging.current && designRef.current) {
-      const newX = e.clientX - dragOffset.current.x;
-      const newY = e.clientY - dragOffset.current.y;
+      const newX = e.clientX - designRef.current.getBoundingClientRect().left;
+      const newY = e.clientY - designRef.current.getBoundingClientRect().top;
       setDesignTransform(prev => ({
         ...prev,
         position: { x: newX, y: newY }
@@ -248,6 +224,12 @@ export default function CustomDesign() {
     isDragging.current = false;
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
+  };
+
+  const handleLoadPreviousDesign = async (design: string) => {
+    setDesignTexture(design);
+    setDesignTransform(DesignService.getInitialDesignTransform());
+    await DesignService.saveDesignToHistory(design);
   };
 
   return (
@@ -300,7 +282,7 @@ export default function CustomDesign() {
             {designTexture && (
               <div className="relative w-full aspect-square">
                 <img
-                  src={getColorAdjustedImage(tshirtViews[viewMode], color)}
+                  src={getColorAdjustedImage(tshirtViews['hanging'], color)}
                   alt="T-Shirt"
                   className="w-full h-full object-contain"
                 />
@@ -450,10 +432,7 @@ export default function CustomDesign() {
                 {previousDesigns.slice(-4).map((design, index) => (
                   <button
                     key={index}
-                    onClick={() => {
-                      setDesignTexture(design);
-                      DesignService.saveDesignToHistory(design, setDesignHistory);
-                    }}
+                    onClick={() => handleLoadPreviousDesign(design)}
                     className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
                     title={`Load previous design ${previousDesigns.length - index}`}
                   >
