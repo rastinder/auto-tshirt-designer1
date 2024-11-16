@@ -499,47 +499,28 @@ async def create_design(request: DesignRequest):
 @app.get("/test/health")
 async def test_health():
     """Simple health check for curl testing"""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 @app.post("/test/design")
 async def test_design_generation(
     prompt: str = Body(..., embed=True),
     test_mode: bool = Body(False, embed=True)
 ):
-    """Test endpoint for design generation via curl
-    
-    Example curl:
-    curl -X POST http://localhost:8000/test/design 
-         -H "Content-Type: application/json" 
-         -d '{"prompt": "a cool t-shirt design", "test_mode": true}'
-    """
+    """Test endpoint for design generation"""
     try:
         if test_mode:
-            # Return mock data for testing
             return {
                 "status": "success",
-                "task_id": "test-123",
-                "result": {
-                    "image_url": "/images/test-image.png",
-                    "metadata": {
-                        "prompt": prompt,
-                        "test": True
-                    }
-                }
+                "task_id": "test_task_123",
+                "message": "Test design request received",
+                "prompt": prompt,
+                "test_mode": True
             }
-        
-        # Create real design request
         request = DesignRequest(prompt=prompt)
-        task_id = await task_queue.add_task(request)
-        
-        return {
-            "status": "pending",
-            "task_id": task_id,
-            "message": "Design generation started"
-        }
-        
+        result = await create_design(request)
+        return result
     except Exception as e:
-        logger.error(f"Test design generation error: {str(e)}")
+        logger.error(f"Error in test design generation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/test/background-removal")
@@ -547,16 +528,9 @@ async def test_background_removal(
     image_url: str = Body(..., embed=True),
     test_mode: bool = Body(False, embed=True)
 ):
-    """Test endpoint for background removal via curl
-    
-    Example curl:
-    curl -X POST http://localhost:8000/test/background-removal 
-         -H "Content-Type: application/json" 
-         -d '{"image_url": "https://example.com/image.png", "test_mode": true}'
-    """
+    """Test endpoint for background removal"""
     try:
         if test_mode:
-            # Return mock data for testing
             return {
                 "status": "success",
                 "result": {
@@ -577,11 +551,7 @@ async def test_background_removal(
 
 @app.get("/test/workers")
 async def test_workers():
-    """Test endpoint to check worker status via curl
-    
-    Example curl:
-    curl http://localhost:8000/test/workers
-    """
+    """Test endpoint to check worker status"""
     return {
         "workers": {
             "connected": len(connected_workers),
@@ -598,216 +568,45 @@ async def test_workers():
 async def test_display():
     """Display comprehensive system test results"""
     try:
-        # Collect system status
-        system_status = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "version": "1.0.0",
-            "environment": os.getenv("ENVIRONMENT", "production"),
-            "backend": {
-                "status": "healthy",
-                "workers": {
-                    "connected": len(connected_workers),
-                    "ids": list(connected_workers.keys())
-                },
-                "queue": {
-                    "size": task_queue.size(),
-                    "pending": task_queue.pending_count(),
-                    "processing": task_queue.processing_count()
-                },
-                "storage": {
-                    "outputs_dir": str(OUTPUTS_DIR),
-                    "writable": os.access(OUTPUTS_DIR, os.W_OK)
-                }
-            },
-            "endpoints": {
-                "design": {
-                    "url": "/api/design",
-                    "method": "POST",
-                    "status": "active"
-                },
-                "background_removal": {
-                    "url": "/api/remove-background",
-                    "method": "POST",
-                    "status": "active"
-                },
-                "color_transparency": {
-                    "url": "/api/color-transparency",
-                    "method": "POST",
-                    "status": "active"
-                },
-                "design_history": {
-                    "url": "/api/previous-designs",
-                    "method": "GET",
-                    "status": "active",
-                    "count": len(design_history)
-                }
-            },
-            "test_endpoints": {
-                "health": {
-                    "url": "/api/test/health",
-                    "method": "GET",
-                    "curl": "curl https://aitshirts.in/api/test/health"
-                },
-                "design_test": {
-                    "url": "/api/test/design",
-                    "method": "POST",
-                    "curl": """curl -X POST https://aitshirts.in/api/test/design \\
-                           -H "Content-Type: application/json" \\
-                           -d '{"prompt": "test design", "test_mode": true}'"""
-                },
-                "background_removal_test": {
-                    "url": "/api/test/background-removal",
-                    "method": "POST",
-                    "curl": """curl -X POST https://aitshirts.in/api/test/background-removal \\
-                           -H "Content-Type: application/json" \\
-                           -d '{"image_url": "https://example.com/image.png", "test_mode": true}'"""
-                },
-                "workers_test": {
-                    "url": "/api/test/workers",
-                    "method": "GET",
-                    "curl": "curl https://aitshirts.in/api/test/workers"
-                }
-            }
-        }
-
-        # Generate HTML display
+        # Get all test results
+        results = await run_all_tests()
+        
+        # Generate HTML response
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>AI T-Shirt Designer - System Test</title>
+            <title>AI T-Shirt Designer - System Tests</title>
             <style>
-                body {{
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background: #f5f5f5;
-                }}
-                .container {{
-                    background: white;
-                    padding: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }}
-                h1, h2 {{
-                    color: #333;
-                    border-bottom: 2px solid #eee;
-                    padding-bottom: 10px;
-                }}
-                .status {{
-                    display: inline-block;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }}
-                .healthy {{ background: #d4edda; color: #155724; }}
-                .warning {{ background: #fff3cd; color: #856404; }}
-                .error {{ background: #f8d7da; color: #721c24; }}
-                .endpoint {{
-                    background: #f8f9fa;
-                    padding: 15px;
-                    margin: 10px 0;
-                    border-radius: 4px;
-                    border-left: 4px solid #007bff;
-                }}
-                .curl-command {{
-                    background: #2d2d2d;
-                    color: #fff;
-                    padding: 15px;
-                    border-radius: 4px;
-                    overflow-x: auto;
-                    font-family: monospace;
-                }}
-                .stats {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 20px;
-                    margin: 20px 0;
-                }}
-                .stat-card {{
-                    background: white;
-                    padding: 15px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-                }}
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .test-section {{ margin: 20px 0; padding: 15px; border: 1px solid #ddd; }}
+                .success {{ color: green; }}
+                .error {{ color: red; }}
+                pre {{ background: #f5f5f5; padding: 10px; }}
             </style>
         </head>
         <body>
-            <div class="container">
-                <h1>AI T-Shirt Designer System Test</h1>
-                <div class="stats">
-                    <div class="stat-card">
-                        <h3>System Status</h3>
-                        <span class="status healthy">HEALTHY</span>
-                        <p>Version: {system_status['version']}</p>
-                        <p>Environment: {system_status['environment']}</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Workers</h3>
-                        <p>Connected: {len(connected_workers)}</p>
-                        <p>Queue Size: {task_queue.size()}</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Design History</h3>
-                        <p>Total Designs: {len(design_history)}</p>
-                    </div>
-                </div>
-
-                <h2>Test Endpoints</h2>
-                <div class="endpoint">
-                    <h3>Health Check</h3>
-                    <p>Test the system health status</p>
-                    <div class="curl-command">
-                        curl https://aitshirts.in/api/test/health
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <h3>Design Generation Test</h3>
-                    <p>Test the design generation system</p>
-                    <div class="curl-command">
-                        curl -X POST https://aitshirts.in/api/test/design \\<br>
-                        &nbsp;&nbsp;-H "Content-Type: application/json" \\<br>
-                        &nbsp;&nbsp;-d '{{"prompt": "test design", "test_mode": true}}'
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <h3>Background Removal Test</h3>
-                    <p>Test the background removal system</p>
-                    <div class="curl-command">
-                        curl -X POST https://aitshirts.in/api/test/background-removal \\<br>
-                        &nbsp;&nbsp;-H "Content-Type: application/json" \\<br>
-                        &nbsp;&nbsp;-d '{{"image_url": "https://example.com/image.png", "test_mode": true}}'
-                    </div>
-                </div>
-
-                <div class="endpoint">
-                    <h3>Worker Status Test</h3>
-                    <p>Check the status of worker processes</p>
-                    <div class="curl-command">
-                        curl https://aitshirts.in/api/test/workers
-                    </div>
-                </div>
-
-                <h2>Quick Test All</h2>
-                <div class="endpoint">
-                    <h3>Run All Tests</h3>
-                    <p>Test all endpoints in sequence</p>
-                    <div class="curl-command">
-                        curl https://aitshirts.in/test/run-all
-                    </div>
-                </div>
+            <h1>AI T-Shirt Designer - System Tests</h1>
+            <div class="test-section">
+                <h2>Test Results</h2>
+                <pre>{json.dumps(results, indent=2)}</pre>
+            </div>
+            <div class="test-section">
+                <h2>Available Test Endpoints</h2>
+                <ul>
+                    <li><code>GET /test/health</code> - Health check</li>
+                    <li><code>POST /test/design</code> - Test design generation</li>
+                    <li><code>POST /test/background-removal</code> - Test background removal</li>
+                    <li><code>GET /test/workers</code> - Check worker status</li>
+                    <li><code>GET /test/run-all</code> - Run all tests</li>
+                </ul>
             </div>
         </body>
         </html>
         """
-
-        return HTMLResponse(content=html_content, status_code=200)
+        return HTMLResponse(content=html_content)
     except Exception as e:
-        logger.error(f"Error in test display: {str(e)}")
+        logger.error(f"Error displaying test dashboard: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test/run-all")
@@ -816,48 +615,14 @@ async def run_all_tests():
     try:
         results = {
             "timestamp": datetime.utcnow().isoformat(),
-            "tests": []
-        }
-
-        # Test health
-        try:
-            health_result = {"name": "Health Check", "status": "healthy"}
-            results["tests"].append(health_result)
-        except Exception as e:
-            results["tests"].append({"name": "Health Check", "status": "error", "error": str(e)})
-
-        # Test workers
-        try:
-            worker_result = {
-                "name": "Worker Status",
-                "status": "active" if connected_workers else "warning",
-                "workers": len(connected_workers)
+            "tests": {
+                "health": await test_health(),
+                "workers": await test_workers(),
+                "design": await test_design_generation(prompt="test design", test_mode=True),
+                "background_removal": await test_background_removal(image_url="test.png", test_mode=True)
             }
-            results["tests"].append(worker_result)
-        except Exception as e:
-            results["tests"].append({"name": "Worker Status", "status": "error", "error": str(e)})
-
-        # Test design generation
-        try:
-            test_design = await test_design_generation(
-                prompt="test design",
-                test_mode=True
-            )
-            results["tests"].append({"name": "Design Generation", "status": "success", "result": test_design})
-        except Exception as e:
-            results["tests"].append({"name": "Design Generation", "status": "error", "error": str(e)})
-
-        # Test background removal
-        try:
-            test_bg = await test_background_removal(
-                image_url="https://example.com/image.png",
-                test_mode=True
-            )
-            results["tests"].append({"name": "Background Removal", "status": "success", "result": test_bg})
-        except Exception as e:
-            results["tests"].append({"name": "Background Removal", "status": "error", "error": str(e)})
-
-        return JSONResponse(content=results)
+        }
+        return results
     except Exception as e:
         logger.error(f"Error running all tests: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
