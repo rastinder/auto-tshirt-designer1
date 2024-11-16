@@ -8,14 +8,15 @@ import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import Draggable from 'react-draggable';
 import 'react-image-crop/dist/ReactCrop.css';
-import { removeBackground } from '../../services/backgroundRemoval';
+import { 
+  removeBackground, 
+  applyTransparency 
+} from '../../services/backgroundRemoval';
 import { 
   checkLocalServer, 
   loadPreviousDesigns, 
   saveDesignToHistory, 
   handleGenerateDesign, 
-  handleBackgroundToggle, 
-  handleTransparencyChange, 
   updateDesignWithHistory 
 } from './api';
 
@@ -183,7 +184,7 @@ export default function CustomDesign() {
 
     setSelectedColor(hexColor);
     setIsPickingColor(false);
-    handleTransparencyChange(designTexture, selectedColor, transparency, setIsLoading, setError, setDesignTexture);
+    handleTransparencyChange();
   };
 
   const handleReset = () => {
@@ -267,6 +268,44 @@ export default function CustomDesign() {
         setIsGenerating(false); // Ensure we reset the generating state
       }
     );
+  };
+
+  const handleBackgroundToggle = async () => {
+    if (!designTexture || isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const processedImageUrl = await removeBackground(designTexture);
+      setDesignTexture(processedImageUrl);
+      setDesignTransform(prev => ({
+        ...prev,
+        hasBackground: false
+      }));
+    } catch (error) {
+      console.error('Background removal failed:', error);
+      setError('Failed to remove background. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTransparencyChange = async () => {
+    if (!designTexture || !selectedColor) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const processedImageUrl = await applyTransparency(designTexture, selectedColor, transparency);
+      setDesignTexture(processedImageUrl);
+    } catch (error) {
+      console.error('Failed to apply transparency:', error);
+      setError('Failed to apply transparency. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -389,26 +428,7 @@ export default function CustomDesign() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (!designTexture || isLoading) return;
-                      try {
-                        setIsLoading(true);
-                        setError(null);
-                        await handleBackgroundToggle(
-                          designTexture,
-                          isLoading,
-                          setIsLoading,
-                          setDesignTexture,
-                          setDesignTransform,
-                          setError
-                        );
-                      } catch (error) {
-                        console.error('Background removal error:', error);
-                        setError('Failed to remove background. Please try again.');
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
+                    onClick={handleBackgroundToggle}
                     disabled={isLoading}
                     className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
                       designTransform.hasBackground 
@@ -457,7 +477,7 @@ export default function CustomDesign() {
 
                   <button
                     onClick={async () => {
-                      if (!designTexture) return;
+                      if (!designTexture || isLoading) return;
                       const timestamp = new Date().getTime();
                       const newUrl = designTexture.includes('?') 
                         ? `${designTexture}&t=${timestamp}`
