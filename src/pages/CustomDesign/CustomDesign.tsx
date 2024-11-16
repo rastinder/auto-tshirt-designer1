@@ -277,241 +277,67 @@ export default function CustomDesign() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <div className="flex flex-col space-y-3">
-          <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
-            <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-[600px] bg-gray-50 rounded-lg shadow-inner overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
               <img
-                src={getColorAdjustedImage(tshirtViews[viewMode], color)}
+                src={getColorAdjustedImage(tshirtViews[viewMode as keyof typeof tshirtViews], color)}
                 alt={`T-shirt ${viewMode} view`}
-                className="w-full h-full object-contain"
+                className="max-w-full max-h-full object-contain"
               />
+            </div>
 
-              {designTexture && !isCropping && (
+            {/* Design overlay */}
+            {designTexture && (
+              <Draggable
+                onStart={() => {
+                  isDragging.current = true;
+                  if (designRef.current) {
+                    const rect = designRef.current.getBoundingClientRect();
+                    dragStartPosition.current = {
+                      x: rect.left,
+                      y: rect.top
+                    };
+                  }
+                }}
+                onStop={() => {
+                  isDragging.current = false;
+                  if (designRef.current) {
+                    const rect = designRef.current.getBoundingClientRect();
+                    dragOffset.current = {
+                      x: rect.left - dragStartPosition.current.x,
+                      y: rect.top - dragStartPosition.current.y
+                    };
+                  }
+                }}
+              >
                 <div
                   ref={designRef}
-                  className="absolute"
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-move"
                   style={{
-                    top: '50%',
-                    left: '50%',
-                    transform: `translate(-50%, -50%) translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
-                    transformOrigin: 'center center',
+                    transform: `translate(-50%, -50%) scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
+                    maxWidth: '80%',
+                    maxHeight: '80%',
                   }}
                 >
-                  <div
-                    className="relative w-full h-full flex items-center justify-center"
+                  <img
+                    src={designTexture}
+                    alt="Design"
+                    className="max-w-full max-h-full"
                     style={{
-                      transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
-                      transition: 'transform 0.1s ease',
+                      filter: `opacity(${100 - transparency}%)`,
                     }}
-                  >
-                    <Draggable
-                      position={designTransform.position}
-                      onDrag={(e, data) => {
-                        setDesignTransform(prev => ({
-                          ...prev,
-                          position: { x: data.x, y: data.y }
-                        }));
-                      }}
-                      bounds="parent"
-                    >
-                      <div
-                        className="cursor-move"
-                        style={{
-                          transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
-                          transformOrigin: 'center center',
-                          maxWidth: '300px',
-                          maxHeight: '300px',
-                          touchAction: 'none'
-                        }}
-                      >
-                        <img
-                          src={designTexture}
-                          alt="Design"
-                          className="w-full h-full object-contain select-none"
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '100%',
-                            userSelect: 'none',
-                            WebkitUserSelect: 'none'
-                          }}
-                          draggable={false}
-                        />
-                      </div>
-                    </Draggable>
-
-                    {/* Design Controls */}
-                    <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg shadow-sm">
-                      {/* Utility Buttons */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => setIsCropping(!isCropping)}
-                          className="flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded"
-                          title={isCropping ? 'Cancel Crop' : 'Crop Design'}
-                        >
-                          <Crop className="w-4 h-4 mr-1" />
-                          {isCropping ? 'Cancel' : 'Crop'}
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            if (!designTexture) return;
-                            const timestamp = new Date().getTime();
-                            const newUrl = designTexture.includes('?') 
-                              ? `${designTexture}&t=${timestamp}`
-                              : `${designTexture}?t=${timestamp}`;
-                            setDesignTexture(newUrl);
-                          }}
-                          className="flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded"
-                          title="Reload design"
-                        >
-                          <RotateCcw className="w-4 h-4 mr-1" />
-                          Reload
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            if (!designTexture || isLoading) return;
-                            try {
-                              setIsLoading(true);
-                              setError(null);
-                              await handleBackgroundToggle(
-                                designTexture,
-                                isLoading,
-                                setIsLoading,
-                                setDesignTexture,
-                                setDesignTransform,
-                                setError
-                              );
-                            } catch (error) {
-                              console.error('Background removal error:', error);
-                              setError('Failed to remove background. Please try again.');
-                            } finally {
-                              setIsLoading(false);
-                            }
-                          }}
-                          disabled={isLoading}
-                          className={`flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={designTransform.hasBackground ? "Remove background" : "Background removed"}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
-                                <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                              </svg>
-                              {designTransform.hasBackground ? "Remove BG" : "BG Removed"}
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => setIsPickingColor(!isPickingColor)}
-                          className={`flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded ${isPickingColor ? 'bg-blue-50' : ''}`}
-                          title="Pick color for transparency"
-                        >
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 2v20M2 12h20" />
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 12h.01" />
-                          </svg>
-                          Color
-                        </button>
-
-                        {selectedColor && (
-                          <>
-                            <div
-                              className="w-4 h-4 rounded border border-gray-300"
-                              style={{ backgroundColor: selectedColor }}
-                            />
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={transparency}
-                              onChange={(e) => setTransparency(parseInt(e.target.value))}
-                              className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <span className="text-xs text-gray-600">{transparency}%</span>
-                          </>
-                        )}
-
-                        <button
-                          onClick={handleReset}
-                          className="flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded"
-                          title="Reset all changes"
-                        >
-                          <Undo2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-gray-700">Size</label>
-                        <span className="text-sm text-gray-500">{Math.round(designTransform.scale * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="200"
-                        value={designTransform.scale * 100}
-                        onChange={(e) => {
-                          const newScale = parseInt(e.target.value) / 100;
-                          setDesignTransform(prev => ({
-                            ...prev,
-                            scale: newScale
-                          }));
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-gray-700">Rotation</label>
-                        <span className="text-sm text-gray-500">{designTransform.rotation}°</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={designTransform.rotation}
-                        onChange={(e) => {
-                          const newRotation = parseInt(e.target.value);
-                          setDesignTransform(prev => ({
-                            ...prev,
-                            rotation: newRotation
-                          }));
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-
-                      <div className="flex items-center justify-between mt-4">
-                        <label className="text-sm font-medium text-gray-700">Position</label>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setDesignTransform(prev => ({
-                              ...prev,
-                              position: { x: 0, y: 0 }
-                            }))}
-                            className="px-2 py-1 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
-                          >
-                            Center
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  />
                 </div>
-              )}
-              {previousDesigns.length > 0 && (
-                <div className="absolute right-4 top-4 flex flex-col gap-2 max-h-[calc(100vh-32px)] overflow-y-auto p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg z-50">
-                  <div className="text-xs text-gray-600 font-medium text-center mb-1">Previous Designs</div>
+              </Draggable>
+            )}
+
+            {/* Previous Designs Gallery */}
+            {previousDesigns.length > 0 && (
+              <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden">
+                <div className="p-2 border-b border-gray-100">
+                  <div className="text-xs text-gray-600 font-medium text-center">History</div>
+                </div>
+                <div className="p-2 flex flex-col gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                   {previousDesigns.slice(-4).map((design, index) => (
                     <button
                       key={index}
@@ -519,15 +345,15 @@ export default function CustomDesign() {
                         setDesignTexture(design);
                         saveDesignToHistory(design, setDesignHistory);
                       }}
-                      className="w-16 h-16 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 relative group"
+                      className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
                       title={`Load previous design ${previousDesigns.length - index}`}
                     >
                       <img
                         src={design}
                         alt={`Previous design ${previousDesigns.length - index}`}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain p-1"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
                       <div className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-black/50 text-white py-0.5">
                         #{previousDesigns.length - index}
                       </div>
@@ -539,114 +365,222 @@ export default function CustomDesign() {
                     </div>
                   )}
                 </div>
-              )}
-              {/* T-Shirt View Controls */}
-              <div className="flex justify-center space-x-4 mt-6 p-4 bg-white rounded-lg shadow-sm">
-                <button
-                  onClick={() => setViewMode('front')}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                    viewMode === 'front' ? 'border-blue-500 shadow-md scale-110' : 'border-gray-200'
-                  }`}
-                  title="Front view"
-                >
-                  <img
-                    src={getColorAdjustedImage(tshirtViews.front, color)}
-                    alt="Front view"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 left-0 right-0 text-center text-xs bg-black bg-opacity-50 text-white py-0.5">
-                    Front
-                  </span>
-                </button>
+              </div>
+            )}
+          </div>
 
-                <button
-                  onClick={() => setViewMode('back')}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                    viewMode === 'back' ? 'border-blue-500 shadow-md scale-110' : 'border-gray-200'
-                  }`}
-                  title="Back view"
-                >
-                  <img
-                    src={getColorAdjustedImage(tshirtViews.back, color)}
-                    alt="Back view"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 left-0 right-0 text-center text-xs bg-black bg-opacity-50 text-white py-0.5">
-                    Back
-                  </span>
-                </button>
+          {/* Design Controls */}
+          {designTexture && (
+            <div className="mt-4 bg-white rounded-lg shadow-sm">
+              {/* Quick Actions */}
+              <div className="p-3 border-b border-gray-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setIsCropping(!isCropping)}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
+                      isCropping 
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
+                    }`}
+                    title={isCropping ? 'Cancel Crop' : 'Crop Design'}
+                  >
+                    <Crop className="w-4 h-4 mr-1.5" />
+                    {isCropping ? 'Cancel' : 'Crop'}
+                  </button>
 
-                <button
-                  onClick={() => setViewMode('left')}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                    viewMode === 'left' ? 'border-blue-500 shadow-md scale-110' : 'border-gray-200'
-                  }`}
-                  title="Left view"
-                >
-                  <img
-                    src={getColorAdjustedImage(tshirtViews.left, color)}
-                    alt="Left view"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 left-0 right-0 text-center text-xs bg-black bg-opacity-50 text-white py-0.5">
-                    Left
-                  </span>
-                </button>
+                  <button
+                    onClick={async () => {
+                      if (!designTexture || isLoading) return;
+                      try {
+                        setIsLoading(true);
+                        setError(null);
+                        await handleBackgroundToggle(
+                          designTexture,
+                          isLoading,
+                          setIsLoading,
+                          setDesignTexture,
+                          setDesignTransform,
+                          setError
+                        );
+                      } catch (error) {
+                        console.error('Background removal error:', error);
+                        setError('Failed to remove background. Please try again.');
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    disabled={isLoading}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
+                      designTransform.hasBackground 
+                        ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={designTransform.hasBackground ? "Remove background" : "Background removed"}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        {designTransform.hasBackground ? "Remove BG" : "BG Removed"}
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  onClick={() => setViewMode('right')}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                    viewMode === 'right' ? 'border-blue-500 shadow-md scale-110' : 'border-gray-200'
-                  }`}
-                  title="Right view"
-                >
-                  <img
-                    src={getColorAdjustedImage(tshirtViews.right, color)}
-                    alt="Right view"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 left-0 right-0 text-center text-xs bg-black bg-opacity-50 text-white py-0.5">
-                    Right
-                  </span>
-                </button>
+                  <button
+                    onClick={() => setIsPickingColor(!isPickingColor)}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
+                      isPickingColor 
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
+                    }`}
+                    title="Pick color for transparency"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-1.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 2v20M2 12h20" />
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 12h.01" />
+                    </svg>
+                    Color
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!designTexture) return;
+                      const timestamp = new Date().getTime();
+                      const newUrl = designTexture.includes('?') 
+                        ? `${designTexture}&t=${timestamp}`
+                        : `${designTexture}?t=${timestamp}`;
+                      setDesignTexture(newUrl);
+                    }}
+                    className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200 transition-all"
+                    title="Reload design"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1.5" />
+                    Reload
+                  </button>
+
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200 transition-all"
+                    title="Reset all changes"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1.5" />
+                    Reset
+                  </button>
+                </div>
+
+                {selectedColor && (
+                  <div className="flex items-center gap-3 mt-3">
+                    <div
+                      className="w-6 h-6 rounded border border-gray-300"
+                      style={{ backgroundColor: selectedColor }}
+                    />
+                    <div className="flex-1">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={transparency}
+                        onChange={(e) => setTransparency(parseInt(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <span className="text-sm text-gray-600 min-w-[40px] text-right">{transparency}%</span>
+                  </div>
+                )}
               </div>
 
-              {previousDesigns.length > 0 && (
-                <div className="absolute right-4 top-4 flex flex-col gap-2 z-50">
-                  {previousDesigns.map((design, index) => (
-                    <button
-                      key={index}
-                      onClick={() => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, design)}
-                      className="w-12 h-12 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-md transition-transform hover:scale-110 focus:outline-none focus:border-blue-500"
-                      title={`Previous design ${index + 1}`}
-                    >
-                      <img
-                        src={design}
-                        alt={`Previous design ${index + 1}`}
-                        className="w-full h-full object-contain"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex justify-center space-x-3 mt-4">
-                {Object.entries(tshirtViews).map(([view, url]) => (
-                  <button
-                    key={view}
-                    onClick={() => setViewMode(view as keyof typeof tshirtViews)}
-                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                      viewMode === view ? 'border-blue-500' : 'border-gray-200'
-                    }`}
-                  >
-                    <img
-                      src={getColorAdjustedImage(url, color)}
-                      alt={`${view} view`}
-                      className="w-full h-full object-cover"
+              {/* Transform Controls */}
+              <div className="p-3">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">Size</label>
+                      <span className="text-sm text-gray-500">{Math.round(designTransform.scale * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="200"
+                      value={designTransform.scale * 100}
+                      onChange={(e) => {
+                        const newScale = parseInt(e.target.value) / 100;
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          scale: newScale
+                        }));
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
-                  </button>
-                ))}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">Rotation</label>
+                      <span className="text-sm text-gray-500">{designTransform.rotation}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={designTransform.rotation}
+                      onChange={(e) => {
+                        const newRotation = parseInt(e.target.value);
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: newRotation
+                        }));
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-sm font-medium text-gray-700">Position</span>
+                    <button
+                      onClick={() => setDesignTransform(prev => ({
+                        ...prev,
+                        position: { x: 0, y: 0 }
+                      }))}
+                      className="px-3 py-1.5 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 transition-all"
+                    >
+                      Center
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
+          )}
+
+          {/* T-Shirt View Controls */}
+          <div className="flex justify-center space-x-3 mt-4">
+            {Object.entries(tshirtViews).map(([view, url]) => (
+              <button
+                key={view}
+                onClick={() => setViewMode(view as keyof typeof tshirtViews)}
+                className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
+                  viewMode === view ? 'border-blue-500' : 'border-gray-200'
+                }`}
+              >
+                <img
+                  src={getColorAdjustedImage(url, color)}
+                  alt={`${view} view`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
           </div>
         </div>
 
