@@ -277,7 +277,10 @@ export default function CustomDesign() {
       setDesignTexture,
       setRetryCount,
       saveDesignToHistory,
-      (newDesign: string | null) => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, newDesign)
+      (newDesign: string | null) => {
+        updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, newDesign);
+        setIsGenerating(false); // Ensure we reset the generating state
+      }
     );
   };
 

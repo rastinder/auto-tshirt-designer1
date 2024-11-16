@@ -119,9 +119,26 @@ export const handleGenerateDesign = async (
   }
 };
 
-export const pollDesignStatus = async (taskId: string, setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>, setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>, setError: React.Dispatch<React.SetStateAction<string | null>>, setRetryCount: React.Dispatch<React.SetStateAction<number>>, saveDesignToHistory: (imageData: string) => Promise<void>, updateDesignWithHistory: (newDesign: string | null) => void) => {
+export const pollDesignStatus = async (
+  taskId: string,
+  setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>,
+  setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>,
+  setError: React.Dispatch<React.SetStateAction<string | null>>,
+  setRetryCount: React.Dispatch<React.SetStateAction<number>>,
+  saveDesignToHistory: (imageData: string) => Promise<void>,
+  updateDesignWithHistory: (newDesign: string | null) => void
+) => {
   const maxRetries = 30;
   let retries = 0;
+
+  const loadImage = (imageSource: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imageSource;
+    });
+  };
 
   while (retries < maxRetries) {
     try {
@@ -134,47 +151,51 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
       console.log('Status response:', data);
 
       if (data.status === 'completed') {
-        // First try to get the image from the result object
         let imageSource = data.result?.image_url;
         
-        // If it's a relative URL, prepend the API base URL
         if (imageSource && imageSource.startsWith('/')) {
           imageSource = `${apiBaseUrl}${imageSource}`;
         }
         
-        // If there's no image_url, try to get the base64 data
         if (!imageSource && data.result?.image_data) {
-          // If it's not already a data URL, convert it to one
           imageSource = data.result.image_data.startsWith('data:') 
             ? data.result.image_data 
             : `data:image/png;base64,${data.result.image_data}`;
         }
 
         if (imageSource) {
-          console.log('Setting image source:', imageSource);
-          // Create a new Image object to verify the image loads correctly
-          const img = new Image();
-          img.onload = async () => {
-            console.log('Image loaded successfully');
-            setDesignTexture(imageSource); // Directly set the design texture
+          try {
+            console.log('Loading image:', imageSource);
+            const img = await loadImage(imageSource);
+            
+            console.log('Image loaded successfully, dimensions:', img.width, 'x', img.height);
+            
+            // Calculate scaled dimensions to fit within max size
+            const maxSize = 300;
+            const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+            const scaledWidth = Math.round(img.width * scale);
+            const scaledHeight = Math.round(img.height * scale);
+            
+            setDesignTexture(imageSource);
             updateDesignWithHistory(imageSource);
             await saveDesignToHistory(imageSource);
+            
             setDesignTransform(prev => ({
               ...prev,
               hasBackground: true,
-              width: img.width,
-              height: img.height,
+              width: scaledWidth,
+              height: scaledHeight,
               originalWidth: img.width,
               originalHeight: img.height,
-              position: { x: 0, y: 0 } // Start from top-left
+              scale: scale,
+              position: { x: 0, y: 0 }
             }));
-          };
-          img.onerror = (e) => {
-            console.error('Failed to load image:', e);
-            setError('Failed to load the generated image. Please try again.');
-          };
-          img.src = imageSource;
-          return;
+            
+            return; // Success - exit the polling loop
+          } catch (imgError) {
+            console.error('Image loading failed:', imgError);
+            throw new Error('Failed to load the generated image');
+          }
         } else {
           throw new Error('No image data received');
         }
@@ -187,7 +208,7 @@ export const pollDesignStatus = async (taskId: string, setDesignTransform: React
       setRetryCount(retries);
     } catch (err) {
       console.error('Error polling status:', err);
-      setError('Failed to get design status. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to get design status');
       break;
     }
   }
