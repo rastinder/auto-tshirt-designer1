@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Crop, AlertCircle, Loader2, Undo2 } from 'lucide-react';
-import { ColorPicker } from '../components/TShirtCustomizer/ColorPicker';
-import { SizeSelector } from '../components/TShirtCustomizer/SizeSelector';
-import { PromptInput } from '../components/TShirtCustomizer/PromptInput';
+import { ColorPicker } from '../../components/TShirtCustomizer/ColorPicker';
+import { SizeSelector } from '../../components/TShirtCustomizer/SizeSelector';
+import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { removeBackground } from '../services/backgroundRemoval';
-import { checkLocalServer, loadPreviousDesigns, saveDesignToHistory, handleGenerateDesign, handleBackgroundToggle, handleTransparencyChange, updateDesignWithHistory } from './api';
+import { removeBackground } from '../../services/backgroundRemoval';
+import { checkLocalServer, loadPreviousDesigns, saveDesignToHistory, handleGenerateDesign, handleBackgroundToggle, handleTransparencyChange, updateDesignWithHistory } from '../../api';
 
 interface DesignTransform {
   hasBackground: boolean;
