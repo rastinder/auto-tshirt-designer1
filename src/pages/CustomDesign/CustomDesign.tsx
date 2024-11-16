@@ -261,6 +261,21 @@ export default function CustomDesign() {
     alert('Added to cart successfully!');
   };
 
+  const handleGenerate = async (prompt: string) => {
+    await handleGenerateDesign(
+      prompt,
+      color,
+      setTaskId,
+      setError,
+      setIsGenerating,
+      setDesignTransform,
+      setDesignTexture,
+      setRetryCount,
+      saveDesignToHistory,
+      (newDesign: string | null) => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, newDesign)
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-4 max-w-7xl">
       <Helmet>
@@ -481,7 +496,7 @@ export default function CustomDesign() {
 
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-1">Generate Design</h3>
-            <PromptInput onGenerate={handleGenerateDesign} isGenerating={isGenerating} />
+            <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
           </div>
 
           <div className="space-y-4">

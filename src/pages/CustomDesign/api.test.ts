@@ -36,6 +36,11 @@ describe('API Functions', () => {
     const mockSetPreviousDesigns = vi.fn();
     const mockSetIsLoadingHistory = vi.fn();
 
+    beforeEach(() => {
+      mockSetPreviousDesigns.mockClear();
+      mockSetIsLoadingHistory.mockClear();
+    });
+
     it('should load previous designs successfully', async () => {
       const mockDesigns = ['design1', 'design2'];
       mockFetch.mockResolvedValueOnce({
@@ -47,6 +52,8 @@ describe('API Functions', () => {
 
       expect(mockSetPreviousDesigns).toHaveBeenCalledWith(mockDesigns);
       expect(mockSetIsLoadingHistory).toHaveBeenCalledTimes(2);
+      expect(mockSetIsLoadingHistory).toHaveBeenNthCalledWith(1, true);
+      expect(mockSetIsLoadingHistory).toHaveBeenNthCalledWith(2, false);
     });
 
     it('should handle errors when loading designs', async () => {
@@ -57,6 +64,8 @@ describe('API Functions', () => {
 
       expect(consoleSpy).toHaveBeenCalled();
       expect(mockSetIsLoadingHistory).toHaveBeenCalledTimes(2);
+      expect(mockSetIsLoadingHistory).toHaveBeenNthCalledWith(1, true);
+      expect(mockSetIsLoadingHistory).toHaveBeenNthCalledWith(2, false);
     });
   });
 });

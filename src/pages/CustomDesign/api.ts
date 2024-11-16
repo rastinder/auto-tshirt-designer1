@@ -56,7 +56,18 @@ export const saveDesignToHistory = async (imageData: string) => {
   }
 };
 
-export const handleGenerateDesign = async (prompt: string, color: string, setTaskId: React.Dispatch<React.SetStateAction<string | null>>, setError: React.Dispatch<React.SetStateAction<string | null>>, setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>) => {
+export const handleGenerateDesign = async (
+  prompt: string,
+  color: string,
+  setTaskId: React.Dispatch<React.SetStateAction<string | null>>,
+  setError: React.Dispatch<React.SetStateAction<string | null>>,
+  setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>,
+  setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>,
+  setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>,
+  setRetryCount: React.Dispatch<React.SetStateAction<number>>,
+  saveDesignToHistory: (imageData: string) => Promise<void>,
+  updateDesignWithHistory: (newDesign: string | null) => void
+) => {
   const formattedPrompt = formatPrompt(prompt, color);
   setIsGenerating(true);
   setError('');
@@ -79,7 +90,15 @@ export const handleGenerateDesign = async (prompt: string, color: string, setTas
     const data = await response.json();
     if (data.task_id) {
       setTaskId(data.task_id);
-      await pollDesignStatus(data.task_id, setDesignTransform, setDesignTexture, setError, setRetryCount, saveDesignToHistory, updateDesignWithHistory);
+      await pollDesignStatus(
+        data.task_id,
+        setDesignTransform,
+        setDesignTexture,
+        setError,
+        setRetryCount,
+        saveDesignToHistory,
+        updateDesignWithHistory
+      );
     } else {
       throw new Error('No task ID received');
     }
