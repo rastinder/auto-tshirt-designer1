@@ -21,12 +21,8 @@ import {
 interface DesignTransform {
   hasBackground: boolean;
   texture: string | null;
-  width: number;
-  height: number;
   rotation: number;
   scale: number;
-  originalWidth: number;
-  originalHeight: number;
   position: { x: number; y: number };
 }
 
@@ -44,12 +40,8 @@ export default function CustomDesign() {
   const [designTransform, setDesignTransform] = useState<DesignTransform>({
     hasBackground: true,
     texture: null,
-    width: 150,
-    height: 150,
     rotation: 0,
-    scale: 0.8,
-    originalWidth: 150,
-    originalHeight: 150,
+    scale: 1,
     position: { x: 0, y: 0 },
   });
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
@@ -114,18 +106,6 @@ export default function CustomDesign() {
       scale: 1,
       rotation: 0
     }));
-  };
-
-  const handleResize = (direction: 'increase' | 'decrease') => {
-    setDesignTransform(prev => {
-      const newScale = Math.max(0.1, Math.min(2, prev.scale + (direction === 'increase' ? 0.05 : -0.05)));
-      return {
-        ...prev,
-        scale: newScale,
-        width: Math.min(prev.originalWidth * newScale, 300),
-        height: Math.min(prev.originalHeight * newScale, 300)
-      };
-    });
   };
 
   const handleCropComplete = (crop: CropType, percentCrop: CropType) => {
@@ -307,8 +287,6 @@ export default function CustomDesign() {
                   style={{
                     top: '50%',
                     left: '50%',
-                    width: `${designTransform.width}px`,
-                    height: `${designTransform.height}px`,
                     transform: `translate(-50%, -50%) translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
                     transformOrigin: 'center center',
                   }}
@@ -318,18 +296,12 @@ export default function CustomDesign() {
                     style={{
                       transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
                       transition: 'transform 0.1s ease',
-                      maxWidth: '300px',
-                      maxHeight: '300px',
                     }}
                   >
                     <img
                       src={designTexture}
                       alt="Design"
-                      className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                      }}
+                      className={`w-auto h-auto max-w-[200px] max-h-[200px] object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
                       onClick={handleColorPick}
                       onError={(e) => {
                         console.error('Failed to load design image');
@@ -340,8 +312,8 @@ export default function CustomDesign() {
                   </div>
 
                   {/* Design Controls */}
-                  <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex flex-wrap items-center gap-2">
-                    {/* Rotation and Scale Controls */}
+                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 flex flex-wrap items-center gap-2">
+                    {/* Rotation Controls */}
                     <div className="flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1">
                       <button
                         onClick={() => setDesignTransform(prev => ({
@@ -451,35 +423,14 @@ export default function CustomDesign() {
                       <button
                         onClick={handleReset}
                         className="flex items-center px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 rounded"
-                        title="Reset transparency"
+                        title="Reset all changes"
                       >
                         <Undo2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-
-                  {/* Size Controls */}
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2">
-                    <button
-                      onClick={() => handleResize('decrease')}
-                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                    >
-                      -
-                    </button>
-                    <div className="text-xs text-gray-500">
-                      {Math.round(designTransform.scale * 100)}%
-                    </div>
-                    <button
-                      onClick={() => handleResize('increase')}
-                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                    >
-                      +
-                    </button>
-                  </div>
                 </div>
               )}
-
-              {/* Gallery */}
               {previousDesigns.length > 0 && (
                 <div className="absolute right-4 top-4 flex flex-col gap-2 z-50">
                   {previousDesigns.map((design, index) => (

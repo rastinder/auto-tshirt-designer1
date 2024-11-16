@@ -140,7 +140,7 @@ export const pollDesignStatus = async (
     });
   };
 
-  while (retries < maxRetries) {
+  const poll = async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/status/${taskId}`);
       if (!response.ok) {
@@ -166,15 +166,7 @@ export const pollDesignStatus = async (
         if (imageSource) {
           try {
             console.log('Loading image:', imageSource);
-            const img = await loadImage(imageSource);
-            
-            console.log('Image loaded successfully, dimensions:', img.width, 'x', img.height);
-            
-            // Calculate scaled dimensions to fit within max size
-            const maxSize = 300;
-            const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-            const scaledWidth = Math.round(img.width * scale);
-            const scaledHeight = Math.round(img.height * scale);
+            await loadImage(imageSource);
             
             setDesignTexture(imageSource);
             updateDesignWithHistory(imageSource);
@@ -183,15 +175,12 @@ export const pollDesignStatus = async (
             setDesignTransform(prev => ({
               ...prev,
               hasBackground: true,
-              width: scaledWidth,
-              height: scaledHeight,
-              originalWidth: img.width,
-              originalHeight: img.height,
-              scale: scale,
+              scale: 1,
+              rotation: 0,
               position: { x: 0, y: 0 }
             }));
             
-            return; // Success - exit the polling loop
+            return true; // Success
           } catch (imgError) {
             console.error('Image loading failed:', imgError);
             throw new Error('Failed to load the generated image');
@@ -203,60 +192,72 @@ export const pollDesignStatus = async (
         throw new Error(data.error || 'Design generation failed');
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Still processing
       retries++;
-      setRetryCount(retries);
-    } catch (err) {
-      console.error('Error polling status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to get design status');
-      break;
-    }
-  }
+      if (retries >= maxRetries) {
+        throw new Error('Design generation timed out');
+      }
 
-  if (retries >= maxRetries) {
-    setError('Design generation timed out. Please try again.');
+      // Update retry count for UI feedback
+      setRetryCount(retries);
+      
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return false; // Continue polling
+    } catch (error) {
+      console.error('Polling error:', error);
+      throw error;
+    }
+  };
+
+  try {
+    while (retries < maxRetries) {
+      const completed = await poll();
+      if (completed) break;
+    }
+  } catch (error) {
+    console.error('Final polling error:', error);
+    setError(error instanceof Error ? error.message : 'Failed to generate design');
+    setDesignTexture(null);
+    setDesignTransform(prev => ({
+      ...prev,
+      hasBackground: true,
+      scale: 1,
+      rotation: 0,
+      position: { x: 0, y: 0 }
+    }));
   }
 };
 
-export const handleBackgroundToggle = async (designTexture: string | null, isLoading: boolean, setIsLoading: React.Dispatch<React.SetStateAction<boolean>>, setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>, setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>, setError: React.Dispatch<React.SetStateAction<string | null>>) => {
+export const handleBackgroundToggle = async (
+  designTexture: string | null,
+  isLoading: boolean,
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>,
+  setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>,
+  setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>,
+  setError: React.Dispatch<React.SetStateAction<string | null>>
+) => {
   if (!designTexture || isLoading) return;
 
+  setIsLoading(true);
+  setError(null);
+
   try {
-    setIsLoading(true);
-    let formData = new FormData();
+    const response = await removeBackground(designTexture);
     
-    // Handle both URL and base64 data
-    if (designTexture.startsWith('data:')) {
-      // If it's base64 data, convert it to a blob
-      const response = await fetch(designTexture);
-      const blob = await response.blob();
-      formData.append('file', blob);
+    if (response.ok) {
+      const result = await response.json();
+      setDesignTexture(result.image_data);
+      setDesignTransform(prev => ({
+        ...prev,
+        hasBackground: false
+      }));
     } else {
-      // If it's a URL, fetch it first
-      const response = await fetch(designTexture);
-      const blob = await response.blob();
-      formData.append('file', blob);
-    }
-
-    const response = await fetch(`${apiBaseUrl}/remove-background`, {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
       throw new Error('Failed to remove background');
     }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    updateDesignWithHistory(url);
-    setDesignTransform(prev => ({
-      ...prev,
-      hasBackground: false
-    }));
-  } catch (error: any) {
-    console.error('Error removing background:', error);
-    setError(error.message || 'Failed to remove background. Please try again.');
+  } catch (error) {
+    console.error('Background removal failed:', error);
+    setError('Failed to remove background. Please try again.');
   } finally {
     setIsLoading(false);
   }
