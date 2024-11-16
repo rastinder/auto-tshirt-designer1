@@ -1,5 +1,5 @@
 import { apiService } from './apiService';
-import { DesignResponse, PromptTemplates, DesignTransform } from '../pages/CustomDesign/types';
+import { DesignResponse, PromptTemplates, DesignTransform, DesignHistoryItem } from '../pages/CustomDesign/types';
 
 const PROMPT_TEMPLATES: PromptTemplates = {
   prefix: "",
@@ -26,7 +26,25 @@ export class DesignService {
       return true;
     } catch (error) {
       console.error('Health check failed:', error);
-      return false;
+      // Try to connect to backup endpoint if main health check fails
+      try {
+        await apiService.get('/status');
+        return true;
+      } catch (backupError) {
+        console.error('Backup health check failed:', backupError);
+        return false;
+      }
+    }
+  }
+
+  static async loadDesignHistory(): Promise<DesignHistoryItem[]> {
+    try {
+      const history = await apiService.get<DesignHistoryItem[]>('/designs/history');
+      return history;
+    } catch (error) {
+      console.error('Failed to load design history:', error);
+      // Return empty array instead of throwing to prevent UI disruption
+      return [];
     }
   }
 
@@ -47,7 +65,18 @@ export class DesignService {
       return response.result.image_data;
     } catch (error) {
       console.error('Error generating design:', error);
-      throw new Error('Failed to generate design');
+      // Try fallback endpoint if main generation fails
+      try {
+        const fallbackResponse = await apiService.post<DesignResponse>('/designs/generate-fallback', {
+          prompt: prompt,
+        });
+        if (fallbackResponse?.result?.image_data) {
+          return fallbackResponse.result.image_data;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback generation failed:', fallbackError);
+      }
+      throw new Error('Failed to generate design. Please try again later.');
     }
   }
 
@@ -101,16 +130,6 @@ export class DesignService {
     } catch (error) {
       console.error('Error adjusting transparency:', error);
       throw new Error('Failed to adjust transparency');
-    }
-  }
-
-  static async loadPreviousDesigns(): Promise<string[]> {
-    try {
-      const response = await apiService.get<string[]>('/designs/history');
-      return response || [];
-    } catch (error) {
-      console.error('Failed to load design history:', error);
-      return [];
     }
   }
 
