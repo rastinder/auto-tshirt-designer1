@@ -302,6 +302,74 @@ export default function CustomDesign() {
                   transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
                 }}
               >
+                {/* Rotation Controls */}
+                <div
+                  className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{ cursor: 'default', zIndex: 10 }}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDesignTransform(prev => ({
+                        ...prev,
+                        rotation: prev.rotation - 5
+                      }));
+                    }}
+                    className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+                  >
+                    ↺
+                  </button>
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    value={designTransform.rotation}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setDesignTransform(prev => ({
+                        ...prev,
+                        rotation: parseInt(e.target.value)
+                      }));
+                    }}
+                    className="w-32 mx-0.5 h-0.5"
+                    style={{
+                      WebkitAppearance: 'none',
+                      appearance: 'none',
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: '9999px',
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDesignTransform(prev => ({
+                        ...prev,
+                        rotation: prev.rotation + 5
+                      }));
+                    }}
+                    className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+                  >
+                    ↻
+                  </button>
+                  <div className="w-px h-4 bg-gray-200 mx-1" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRestore();
+                    }}
+                    className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
+                    title="Reset size and rotation"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Design Image Container */}
                 <div
                   className="relative w-full h-full"
                   style={{
@@ -320,6 +388,29 @@ export default function CustomDesign() {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
+                </div>
+
+                {/* Size Controls */}
+                <div 
+                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{ cursor: 'default', zIndex: 10 }}
+                >
+                  <button
+                    onClick={() => handleResize('decrease')}
+                    className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                  >
+                    -
+                  </button>
+                  <div className="text-xs text-gray-500">
+                    {Math.round(designTransform.scale * 100)}%
+                  </div>
+                  <button
+                    onClick={() => handleResize('increase')}
+                    className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                  >
+                    +
+                  </button>
                 </div>
               </div>
             )}
