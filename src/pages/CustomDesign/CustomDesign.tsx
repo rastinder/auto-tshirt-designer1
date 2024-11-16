@@ -44,12 +44,12 @@ export default function CustomDesign() {
   const [designTransform, setDesignTransform] = useState<DesignTransform>({
     hasBackground: true,
     texture: null,
-    width: 200,
-    height: 200,
+    width: 150,
+    height: 150,
     rotation: 0,
-    scale: 1,
-    originalWidth: 200,
-    originalHeight: 200,
+    scale: 0.8,
+    originalWidth: 150,
+    originalHeight: 150,
     position: { x: 0, y: 0 },
   });
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
@@ -117,10 +117,15 @@ export default function CustomDesign() {
   };
 
   const handleResize = (direction: 'increase' | 'decrease') => {
-    setDesignTransform(prev => ({
-      ...prev,
-      scale: Math.max(0.1, Math.min(3, prev.scale + (direction === 'increase' ? 0.05 : -0.05)))
-    }));
+    setDesignTransform(prev => {
+      const newScale = Math.max(0.1, Math.min(2, prev.scale + (direction === 'increase' ? 0.05 : -0.05)));
+      return {
+        ...prev,
+        scale: newScale,
+        width: Math.min(prev.originalWidth * newScale, 300),
+        height: Math.min(prev.originalHeight * newScale, 300)
+      };
+    });
   };
 
   const handleCropComplete = (crop: CropType, percentCrop: CropType) => {
@@ -375,12 +380,15 @@ export default function CustomDesign() {
                   style={{
                     transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
                     transition: 'transform 0.1s ease',
+                    maxWidth: '300px',
+                    maxHeight: '300px',
+                    margin: '0 auto'
                   }}
                 >
                   <img
                     src={designTexture}
                     alt="Design"
-                    className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                    className={`w-full h-full object-contain max-w-[300px] max-h-[300px] ${isPickingColor ? 'cursor-crosshair' : ''}`}
                     onClick={handleColorPick}
                     onError={(e) => {
                       console.error('Failed to load design image');
