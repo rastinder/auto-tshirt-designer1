@@ -67,20 +67,10 @@ export default function CustomDesign() {
   const tshirtViews = {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
     laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
-    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg",
-    front: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/front.png",
-    back: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/back.png",
-    left: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/left.png",
-    right: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/right.png"
+    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg"
   };
 
   const getColorAdjustedImage = (imageUrl: string, color: string) => {
-    if (imageUrl.includes('tshirt/')) {
-      // For new t-shirt images, use tint transformation
-      const hexColor = color.replace('#', '');
-      return imageUrl.replace('/upload/', `/upload/e_tint:${hexColor}:50/`);
-    }
-    // For legacy images
     const hexColor = color.replace('#', '');
     return imageUrl.replace(/e_red:0\/e_blue:0\/e_green:0/, `e_replace_color:${hexColor}:60:white`);
   };
@@ -589,20 +579,24 @@ export default function CustomDesign() {
           )}
 
           {/* T-Shirt View Controls */}
-          <div className="flex justify-center space-x-3 mt-4">
+          <div className="flex justify-center gap-3 mt-4">
             {Object.entries(tshirtViews).map(([view, url]) => (
               <button
                 key={view}
-                onClick={() => setViewMode(view as keyof typeof tshirtViews)}
-                className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                  viewMode === view ? 'border-blue-500' : 'border-gray-200'
+                onClick={() => setViewMode(view)}
+                className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  viewMode === view ? 'border-blue-500 shadow-md scale-105' : 'border-gray-200'
                 }`}
+                title={`${view.charAt(0).toUpperCase() + view.slice(1)} view`}
               >
                 <img
                   src={getColorAdjustedImage(url, color)}
                   alt={`${view} view`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-1"
                 />
+                <span className="absolute bottom-0 left-0 right-0 text-center text-xs bg-black bg-opacity-50 text-white py-0.5">
+                  {view.charAt(0).toUpperCase() + view.slice(1)}
+                </span>
               </button>
             ))}
           </div>
