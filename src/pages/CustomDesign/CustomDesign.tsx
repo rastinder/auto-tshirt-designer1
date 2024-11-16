@@ -293,196 +293,202 @@ export default function CustomDesign() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <div className="flex flex-col space-y-3">
           <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
-            <img
-              src={getColorAdjustedImage(tshirtViews[viewMode], color)}
-              alt={`T-shirt ${viewMode} view`}
-              className="w-full h-full object-contain"
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              <img
+                src={getColorAdjustedImage(tshirtViews[viewMode], color)}
+                alt={`T-shirt ${viewMode} view`}
+                className="w-full h-full object-contain"
+              />
 
-            {designTexture && !isCropping && (
-              <div
-                ref={designRef}
-                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-move"
-                onMouseDown={handleDragStart}
-                style={{
-                  width: `${designTransform.width}px`,
-                  height: `${designTransform.height}px`,
-                  transform: `translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
-                }}
-              >
-                {/* Rotation Controls */}
+              {designTexture && !isCropping && (
                 <div
-                  className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{ cursor: 'default', zIndex: 10 }}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDesignTransform(prev => ({
-                        ...prev,
-                        rotation: prev.rotation - 5
-                      }));
-                    }}
-                    className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                  >
-                    ↺
-                  </button>
-                  <input
-                    type="range"
-                    min="-180"
-                    max="180"
-                    value={designTransform.rotation}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      setDesignTransform(prev => ({
-                        ...prev,
-                        rotation: parseInt(e.target.value)
-                      }));
-                    }}
-                    className="w-32 mx-0.5 h-0.5"
-                    style={{
-                      WebkitAppearance: 'none',
-                      appearance: 'none',
-                      backgroundColor: '#e5e7eb',
-                      borderRadius: '9999px',
-                      cursor: 'pointer',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDesignTransform(prev => ({
-                        ...prev,
-                        rotation: prev.rotation + 5
-                      }));
-                    }}
-                    className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-                  >
-                    ↻
-                  </button>
-                  <div className="w-px h-4 bg-gray-200 mx-1" />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRestore();
-                    }}
-                    className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
-                    title="Reset size and rotation"
-                  >
-                    Reset
-                  </button>
-                </div>
-
-                {/* Design Image Container */}
-                <div
-                  className="relative w-full h-full"
+                  ref={designRef}
+                  className="absolute"
                   style={{
-                    transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
-                    transition: 'transform 0.1s ease',
-                    maxWidth: '300px',
-                    maxHeight: '300px',
-                    margin: '0 auto'
+                    top: '50%',
+                    left: '50%',
+                    width: `${designTransform.width}px`,
+                    height: `${designTransform.height}px`,
+                    transform: `translate(-50%, -50%) translate(${designTransform.position.x}px, ${designTransform.position.y}px)`,
+                    transformOrigin: 'center center',
+                    cursor: 'move',
                   }}
+                  onMouseDown={handleDragStart}
                 >
-                  <img
-                    src={designTexture}
-                    alt="Design"
-                    className={`w-full h-full object-contain max-w-[300px] max-h-[300px] ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                    onClick={handleColorPick}
-                    onError={(e) => {
-                      console.error('Failed to load design image');
-                      setError('Failed to load the design image. Please try again.');
-                      e.currentTarget.style.display = 'none';
+                  <div
+                    className="relative w-full h-full flex items-center justify-center"
+                    style={{
+                      transform: `rotate(${designTransform.rotation}deg) scale(${designTransform.scale})`,
+                      transition: 'transform 0.1s ease',
+                      maxWidth: '300px',
+                      maxHeight: '300px',
                     }}
-                  />
-                </div>
-
-                {/* Size Controls */}
-                <div 
-                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{ cursor: 'default', zIndex: 10 }}
-                >
-                  <button
-                    onClick={() => handleResize('decrease')}
-                    className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                  >
-                    -
-                  </button>
-                  <div className="text-xs text-gray-500">
-                    {Math.round(designTransform.scale * 100)}%
-                  </div>
-                  <button
-                    onClick={() => handleResize('increase')}
-                    className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {previousDesigns.length > 0 && (
-              <div className="absolute right-4 top-4 flex flex-col gap-2 z-50">
-                {previousDesigns.map((design, index) => (
-                  <button
-                    key={index}
-                    onClick={() => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, design)}
-                    className="w-12 h-12 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-md transition-transform hover:scale-110 focus:outline-none focus:border-blue-500"
-                    title={`Previous design ${index + 1}`}
                   >
                     <img
-                      src={design}
-                      alt={`Previous design ${index + 1}`}
+                      src={designTexture}
+                      alt="Design"
+                      className={`w-full h-full object-contain ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                      }}
+                      onClick={handleColorPick}
+                      onError={(e) => {
+                        console.error('Failed to load design image');
+                        setError('Failed to load the design image. Please try again.');
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {previousDesigns.length > 0 && (
+                <div className="absolute right-4 top-4 flex flex-col gap-2 z-50">
+                  {previousDesigns.map((design, index) => (
+                    <button
+                      key={index}
+                      onClick={() => updateDesignWithHistory(setDesignHistory, setDesignTexture, designTexture, design)}
+                      className="w-12 h-12 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-500 overflow-hidden shadow-md transition-transform hover:scale-110 focus:outline-none focus:border-blue-500"
+                      title={`Previous design ${index + 1}`}
+                    >
+                      <img
+                        src={design}
+                        alt={`Previous design ${index + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {designTexture && isCropping && (
+                <div className="absolute inset-0 bg-white">
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c) => setCrop(c)}
+                    onComplete={handleCropComplete}
+                  >
+                    <img
+                      ref={imageRef}
+                      src={designTexture}
+                      alt="Crop design"
                       className="w-full h-full object-contain"
                     />
-                  </button>
-                ))}
-              </div>
-            )}
+                  </ReactCrop>
+                </div>
+              )}
+            </div>
 
-            {designTexture && isCropping && (
-              <div className="absolute inset-0 bg-white">
-                <ReactCrop
-                  crop={crop}
-                  onChange={(c) => setCrop(c)}
-                  onComplete={handleCropComplete}
+            <div className="flex justify-center space-x-3">
+              {Object.entries(tshirtViews).map(([view, url]) => (
+                <button
+                  key={view}
+                  onClick={() => setViewMode(view as keyof typeof tshirtViews)}
+                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
+                    viewMode === view ? 'border-blue-500' : 'border-gray-200'
+                  }`}
                 >
                   <img
-                    ref={imageRef}
-                    src={designTexture}
-                    alt="Crop design"
-                    className="w-full h-full object-contain"
+                    src={getColorAdjustedImage(url, color)}
+                    alt={`${view} view`}
+                    className="w-full h-full object-cover"
                   />
-                </ReactCrop>
-              </div>
-            )}
-          </div>
+                </button>
+              ))}
+            </div>
 
-          <div className="flex justify-center space-x-3">
-            {Object.entries(tshirtViews).map(([view, url]) => (
+            {/* Rotation Controls */}
+            <div
+              className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{ cursor: 'default', zIndex: 10 }}
+            >
               <button
-                key={view}
-                onClick={() => setViewMode(view as keyof typeof tshirtViews)}
-                className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                  viewMode === view ? 'border-blue-500' : 'border-gray-200'
-                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDesignTransform(prev => ({
+                    ...prev,
+                    rotation: prev.rotation - 5
+                  }));
+                }}
+                className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
               >
-                <img
-                  src={getColorAdjustedImage(url, color)}
-                  alt={`${view} view`}
-                  className="w-full h-full object-cover"
-                />
+                ↺
               </button>
-            ))}
-          </div>
-        </div>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                value={designTransform.rotation}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setDesignTransform(prev => ({
+                    ...prev,
+                    rotation: parseInt(e.target.value)
+                  }));
+                }}
+                className="w-32 mx-0.5 h-0.5"
+                style={{
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                  backgroundColor: '#e5e7eb',
+                  borderRadius: '9999px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDesignTransform(prev => ({
+                    ...prev,
+                    rotation: prev.rotation + 5
+                  }));
+                }}
+                className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+              >
+                ↻
+              </button>
+              <div className="w-px h-4 bg-gray-200 mx-1" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRestore();
+                }}
+                className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
+                title="Reset size and rotation"
+              >
+                Reset
+              </button>
+            </div>
 
-        <div className="flex flex-col space-y-4 sticky top-4">
+            {/* Size Controls */}
+            <div 
+              className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2"
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{ cursor: 'default', zIndex: 10 }}
+            >
+              <button
+                onClick={() => handleResize('decrease')}
+                className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+              >
+                -
+              </button>
+              <div className="text-xs text-gray-500">
+                {Math.round(designTransform.scale * 100)}%
+              </div>
+              <button
+                onClick={() => handleResize('increase')}
+                className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-col md:flex-row">
             <div className="flex-1">
               <h1 className="text-3xl font-bold mb-2">Customize Your T-Shirt</h1>
@@ -598,8 +604,7 @@ export default function CustomDesign() {
                     <Undo2 className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-            )}
+              )}
 
             <div>
               <button
