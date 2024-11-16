@@ -29,6 +29,10 @@ import numpy as np
 
 # Get the application root directory
 ROOT_DIR = Path(__file__).parent.parent.resolve()
+OUTPUTS_DIR = ROOT_DIR / "outputs"
+
+# Create outputs directory if it doesn't exist
+OUTPUTS_DIR.mkdir(exist_ok=True, parents=True)
 
 # Configure logging
 LOG_DIR = ROOT_DIR / "logs"
@@ -58,10 +62,6 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
     max_age=3600
 )
-
-# Create and configure directories
-OUTPUTS_DIR = ROOT_DIR / "outputs"
-OUTPUTS_DIR.mkdir(exist_ok=True)
 
 # Custom static files handler with CORS
 class CORSStaticFiles(StaticFiles):

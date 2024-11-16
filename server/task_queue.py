@@ -10,6 +10,8 @@ import base64
 from server.models import Task, DesignRequest, TaskStatus
 import json
 from server.utils import serialize_datetime
+from PIL import Image
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +41,28 @@ class TaskQueue:
         self.outputs_dir.mkdir(exist_ok=True)
         
         logger.info(f"Saving image to: {filepath}")
-        filepath.write_bytes(image_data)
-        
-        # Convert to base64
-        base64_data = base64.b64encode(image_data).decode('utf-8')
-        logger.info(f"Image converted to base64 (length: {len(base64_data)})")
-        
-        # Verify the file was saved
-        if not filepath.exists():
-            raise Exception(f"Failed to save image to {filepath}")
+        try:
+            # Convert image data to PIL Image
+            image = Image.open(io.BytesIO(image_data))
             
-        logger.info(f"Image saved successfully: {filepath}")
-        return filename, base64_data
+            # Save as PNG
+            with open(filepath, 'wb') as f:
+                image.save(f, format='PNG', optimize=True)
+            
+            # Convert to base64
+            base64_data = base64.b64encode(image_data).decode('utf-8')
+            logger.info(f"Image converted to base64 (length: {len(base64_data)})")
+            
+            # Verify the file was saved
+            if not filepath.exists():
+                raise Exception(f"Failed to save image to {filepath}")
+                
+            logger.info(f"Image saved successfully: {filepath}")
+            return filename, base64_data
+            
+        except Exception as e:
+            logger.error(f"Error saving image: {str(e)}")
+            raise
 
     async def try_api_generation(self, task: Task) -> Optional[bytes]:
         """Try to generate image using the API first"""
@@ -165,22 +177,31 @@ class TaskQueue:
         }, default=serialize_datetime))
 
     async def update_task_status(self, task_id: str, status: TaskStatus, result: Optional[dict] = None):
-        if task_id not in self.tasks:
-            logger.error(f"Task {task_id} not found")
+        task = self.tasks.get(task_id)
+        if not task:
+            logger.error(f"Task not found: {task_id}")
             return
-
-        task = self.tasks[task_id]
+            
         task.status = status
-        
-        if status == TaskStatus.PROCESSING:
-            task.started_at = datetime.utcnow()
-        elif status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+        if status == TaskStatus.COMPLETED:
             task.completed_at = datetime.utcnow()
-            if result:
+            if result and isinstance(result, dict):
+                # Make sure we have both image_url and image_data
+                if 'image_data' in result and not result.get('image_url'):
+                    filename = f"{task_id}.png"
+                    result['image_url'] = f"/images/{filename}"
+                elif 'image_url' in result and not result.get('image_data'):
+                    try:
+                        with open(self.outputs_dir / Path(result['image_url']).name, 'rb') as f:
+                            image_data = f.read()
+                            result['image_data'] = f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+                    except Exception as e:
+                        logger.error(f"Error reading image data: {str(e)}")
+                
                 task.result = result
-            if task_id in self.processing_tasks:
-                del self.processing_tasks[task_id]
-
+        elif status == TaskStatus.FAILED:
+            task.result = result or {"error": "Unknown error"}
+            
         logger.info(f"Updated task {task_id} status to {status}")
 
     async def cleanup_timed_out_tasks(self):
