@@ -11,7 +11,7 @@ import Cart from './pages/Cart';
 import Blog from './pages/Blog';
 import About from './pages/About';
 import Legal from './pages/Legal';
-import CustomDesign from './pages/CustomDesign';
+import CustomDesign from './pages/CustomDesign/CustomDesign';
 
 function App() {
   return (
