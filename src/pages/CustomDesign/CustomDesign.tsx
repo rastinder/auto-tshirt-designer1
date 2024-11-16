@@ -68,13 +68,19 @@ export default function CustomDesign() {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
     laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
     model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg",
-    front: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_front-shirt-texture,o_0,fl_relative,w_1.0/front-shirt_xqstgr.jpg",
-    back: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_back-shirt-texture,o_0,fl_relative,w_1.0/back-shirt_xqstgr.jpg",
-    left: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_left-shirt-texture,o_0,fl_relative,w_1.0/left-shirt_xqstgr.jpg",
-    right: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_right-shirt-texture,o_0,fl_relative,w_1.0/right-shirt_xqstgr.jpg"
+    front: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/front.png",
+    back: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/back.png",
+    left: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/left.png",
+    right: "https://res.cloudinary.com/demo-robert/image/upload/v1701101659/tshirt/right.png"
   };
 
   const getColorAdjustedImage = (imageUrl: string, color: string) => {
+    if (imageUrl.includes('tshirt/')) {
+      // For new t-shirt images, use tint transformation
+      const hexColor = color.replace('#', '');
+      return imageUrl.replace('/upload/', `/upload/e_tint:${hexColor}:50/`);
+    }
+    // For legacy images
     const hexColor = color.replace('#', '');
     return imageUrl.replace(/e_red:0\/e_blue:0\/e_green:0/, `e_replace_color:${hexColor}:60:white`);
   };
