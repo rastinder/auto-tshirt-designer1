@@ -8,7 +8,7 @@ const PROMPT_TEMPLATES = {
   negative: "distorted, blurry, bad art, watermark, text, deformed, out of frame, cropped, low quality"
 };
 
-const isDevelopment = import.meta.env.DEV;
+const isDevelopment = import.meta.env.MODE === 'production' ? false : true;
 const apiBaseUrl = isDevelopment ? 'http://localhost:8000' : 'https://aitshirts.in/api';
 
 export const checkLocalServer = async () => {
@@ -27,50 +27,60 @@ export const checkLocalServer = async () => {
   }
 };
 
-export const removeBackground = async (imageUrl: string): Promise<string> => {
+export const generateDesign = async (prompt: string): Promise<string> => {
   try {
-    const response = await fetch(`${apiBaseUrl}/remove-background`, {
+    const response = await fetch(`${apiBaseUrl}/generate-design`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ image_url: imageUrl }),
+      body: JSON.stringify({ prompt }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to remove background: ${response.status}`);
+      throw new Error(`Failed to generate design: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.processed_image_url;
+    return data.image_url;
   } catch (error) {
-    console.error('Background removal error:', error);
+    console.error('Design generation error:', error);
     throw error;
   }
 };
 
-export const applyTransparency = async (imageUrl: string, color: string, transparency: number): Promise<string> => {
+export const removeBackground = async (imageUrl: string, transparency: number = 0): Promise<string> => {
   try {
-    const response = await fetch(`${apiBaseUrl}/apply-transparency`, {
+    // Convert image URL to base64
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+    // Send base64 image to API
+    const apiResponse = await fetch(`${apiBaseUrl}/remove-background`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image_url: imageUrl,
-        color: color,
+        image: base64.split(',')[1], // Remove data:image/... prefix
         transparency: transparency
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to apply transparency: ${response.status}`);
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.json().catch(() => null);
+      throw new Error(errorData?.detail || `Failed to remove background: ${apiResponse.status}`);
     }
 
-    const data = await response.json();
+    const data = await apiResponse.json();
     return data.processed_image_url;
   } catch (error) {
-    console.error('Transparency error:', error);
+    console.error('Background removal error:', error);
     throw error;
   }
 };
@@ -113,7 +123,6 @@ export const saveDesignToHistory = async (imageData: string) => {
 
 export const handleGenerateDesign = async (
   prompt: string,
-  color: string,
   setTaskId: React.Dispatch<React.SetStateAction<string | null>>,
   setError: React.Dispatch<React.SetStateAction<string | null>>,
   setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>,
@@ -127,146 +136,12 @@ export const handleGenerateDesign = async (
   setError(null);
   
   try {
-    const formattedPrompt = formatPrompt(prompt, color);
-    console.log('Generating design with prompt:', formattedPrompt);
+    const response = await generateDesign(prompt);
 
-    const response = await fetch(`${apiBaseUrl}/design`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: formattedPrompt,
-        color: color,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Design generation failed. Status:', response.status, 'Error:', errorText);
-      throw new Error(`Failed to generate design: ${response.statusText}`);
-    }
-
-    const data: DesignResponse = await response.json();
-    setTaskId(data.task_id);
+    setDesignTexture(response);
+    updateDesignWithHistory(response);
+    await saveDesignToHistory(response);
     
-    // Start polling for the design status
-    pollDesignStatus(
-      data.task_id,
-      setDesignTransform,
-      setDesignTexture,
-      setError,
-      setRetryCount,
-      saveDesignToHistory,
-      updateDesignWithHistory
-    );
-  } catch (err) {
-    console.error('Error generating design:', err);
-    setError(err instanceof Error ? err.message : 'Failed to generate design');
-    setIsGenerating(false);
-  }
-};
-
-export const pollDesignStatus = async (
-  taskId: string,
-  setDesignTransform: React.Dispatch<React.SetStateAction<DesignTransform>>,
-  setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>,
-  setError: React.Dispatch<React.SetStateAction<string | null>>,
-  setRetryCount: React.Dispatch<React.SetStateAction<number>>,
-  saveDesignToHistory: (imageData: string) => Promise<void>,
-  updateDesignWithHistory: (newDesign: string | null) => void
-) => {
-  const maxRetries = 30;
-  let retries = 0;
-
-  const loadImage = (imageSource: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = imageSource;
-    });
-  };
-
-  const poll = async () => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/status/${taskId}`);
-      if (!response.ok) {
-        throw new Error('Failed to get status');
-      }
-
-      const data = await response.json();
-      console.log('Status response:', data);
-
-      if (data.status === 'completed') {
-        let imageSource = data.result?.image_url;
-        
-        if (imageSource && imageSource.startsWith('/')) {
-          imageSource = `${apiBaseUrl}${imageSource}`;
-        }
-        
-        if (!imageSource && data.result?.image_data) {
-          imageSource = data.result.image_data.startsWith('data:') 
-            ? data.result.image_data 
-            : `data:image/png;base64,${data.result.image_data}`;
-        }
-
-        if (imageSource) {
-          try {
-            console.log('Loading image:', imageSource);
-            await loadImage(imageSource);
-            
-            setDesignTexture(imageSource);
-            updateDesignWithHistory(imageSource);
-            await saveDesignToHistory(imageSource);
-            
-            setDesignTransform(prev => ({
-              ...prev,
-              hasBackground: true,
-              scale: 1,
-              rotation: 0,
-              position: { x: 0, y: 0 }
-            }));
-            
-            return true; // Success
-          } catch (imgError) {
-            console.error('Image loading failed:', imgError);
-            throw new Error('Failed to load the generated image');
-          }
-        } else {
-          throw new Error('No image data received');
-        }
-      } else if (data.status === 'failed') {
-        throw new Error(data.error || 'Design generation failed');
-      }
-
-      // Still processing
-      retries++;
-      if (retries >= maxRetries) {
-        throw new Error('Design generation timed out');
-      }
-
-      // Update retry count for UI feedback
-      setRetryCount(retries);
-      
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return false; // Continue polling
-    } catch (error) {
-      console.error('Polling error:', error);
-      throw error;
-    }
-  };
-
-  try {
-    while (retries < maxRetries) {
-      const completed = await poll();
-      if (completed) break;
-    }
-  } catch (error) {
-    console.error('Final polling error:', error);
-    setError(error instanceof Error ? error.message : 'Failed to generate design');
-    setDesignTexture(null);
     setDesignTransform(prev => ({
       ...prev,
       hasBackground: true,
@@ -274,6 +149,10 @@ export const pollDesignStatus = async (
       rotation: 0,
       position: { x: 0, y: 0 }
     }));
+  } catch (err) {
+    console.error('Error generating design:', err);
+    setError(err instanceof Error ? err.message : 'Failed to generate design');
+    setIsGenerating(false);
   }
 };
 
@@ -309,70 +188,6 @@ export const handleBackgroundToggle = async (
   } finally {
     setIsLoading(false);
   }
-};
-
-export const handleTransparencyChange = async (designTexture: string | null, selectedColor: string, transparency: number, setIsLoading: React.Dispatch<React.SetStateAction<boolean>>, setError: React.Dispatch<React.SetStateAction<string | null>>, setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>) => {
-  if (!designTexture || !selectedColor) return;
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    let formData = new FormData();
-    
-    // Handle both URL and base64 data
-    if (designTexture.startsWith('data:')) {
-      // If it's base64 data, convert it to a blob
-      const response = await fetch(designTexture);
-      const blob = await response.blob();
-      formData.append('file', blob);
-    } else {
-      // If it's a URL, fetch it first
-      const response = await fetch(designTexture);
-      const blob = await response.blob();
-      formData.append('file', blob);
-    }
-
-    formData.append('color', selectedColor);
-    formData.append('tolerance', (transparency / 100).toString());
-
-    const response = await fetch(`${apiBaseUrl}/color_transparency`, {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to apply transparency: ${response.statusText}`);
-    }
-
-    const blob = await response.blob();
-    const imageUrl = URL.createObjectURL(blob);
-    setDesignTexture(imageUrl);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to apply transparency');
-    console.error('Error applying transparency:', err);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-export const formatPrompt = (basePrompt: string, color: string) => {
-  const colorName = getColorName(color);
-  return `${PROMPT_TEMPLATES.prefix} ${basePrompt} on a ${colorName} background, ${PROMPT_TEMPLATES.suffix}`;
-};
-
-const getColorName = (hex: string) => {
-  const colors: { [key: string]: string } = {
-    '#ffffff': 'white',
-    '#000000': 'black',
-    '#0f172a': 'navy',
-    '#6b7280': 'gray',
-    '#ef4444': 'red',
-    '#22c55e': 'green',
-    '#3b82f6': 'blue',
-    '#a855f7': 'purple'
-  };
-  return colors[hex] || 'white';
 };
 
 export const updateDesignWithHistory = (setDesignHistory: React.Dispatch<React.SetStateAction<string[]>>, setDesignTexture: React.Dispatch<React.SetStateAction<string | null>>, designTexture: string | null, newDesign: string | null) => {
