@@ -340,6 +340,96 @@ export default function CustomDesign() {
                       }}
                     />
                   </div>
+
+                  {/* Rotation Controls */}
+                  <div
+                    className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ cursor: 'default', zIndex: 10 }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: prev.rotation - 5
+                        }));
+                      }}
+                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+                    >
+                      ↺
+                    </button>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={designTransform.rotation}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: parseInt(e.target.value)
+                        }));
+                      }}
+                      className="w-32 mx-0.5 h-0.5"
+                      style={{
+                        WebkitAppearance: 'none',
+                        appearance: 'none',
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: '9999px',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDesignTransform(prev => ({
+                          ...prev,
+                          rotation: prev.rotation + 5
+                        }));
+                      }}
+                      className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
+                    >
+                      ↻
+                    </button>
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRestore();
+                      }}
+                      className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
+                      title="Reset size and rotation"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {/* Size Controls */}
+                  <div 
+                    className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ cursor: 'default', zIndex: 10 }}
+                  >
+                    <button
+                      onClick={() => handleResize('decrease')}
+                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                    >
+                      -
+                    </button>
+                    <div className="text-xs text-gray-500">
+                      {Math.round(designTransform.scale * 100)}%
+                    </div>
+                    <button
+                      onClick={() => handleResize('increase')}
+                      className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -380,7 +470,7 @@ export default function CustomDesign() {
               )}
             </div>
 
-            <div className="flex justify-center space-x-3">
+            <div className="flex justify-center space-x-3 mt-4">
               {Object.entries(tshirtViews).map(([view, url]) => (
                 <button
                   key={view}
@@ -397,216 +487,36 @@ export default function CustomDesign() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
 
-            {/* Rotation Controls */}
-            <div
-              className="absolute -top-16 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-1"
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{ cursor: 'default', zIndex: 10 }}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDesignTransform(prev => ({
-                    ...prev,
-                    rotation: prev.rotation - 5
-                  }));
-                }}
-                className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-              >
-                ↺
-              </button>
-              <input
-                type="range"
-                min="-180"
-                max="180"
-                value={designTransform.rotation}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setDesignTransform(prev => ({
-                    ...prev,
-                    rotation: parseInt(e.target.value)
-                  }));
-                }}
-                className="w-32 mx-0.5 h-0.5"
-                style={{
-                  WebkitAppearance: 'none',
-                  appearance: 'none',
-                  backgroundColor: '#e5e7eb',
-                  borderRadius: '9999px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDesignTransform(prev => ({
-                    ...prev,
-                    rotation: prev.rotation + 5
-                  }));
-                }}
-                className="text-gray-700 hover:text-blue-500 px-0.5 text-xs"
-              >
-                ↻
-              </button>
-              <div className="w-px h-4 bg-gray-200 mx-1" />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRestore();
-                }}
-                className="text-gray-700 hover:text-blue-500 px-1 text-xs flex items-center"
-                title="Reset size and rotation"
-              >
-                Reset
-              </button>
-            </div>
+        <div className="flex flex-col space-y-4">
+          <div className="bg-white rounded-lg p-6 shadow-lg">
+            <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
 
-            {/* Size Controls */}
-            <div 
-              className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex items-center bg-white rounded-lg shadow-sm py-0.5 px-1 select-none gap-2"
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{ cursor: 'default', zIndex: 10 }}
-            >
-              <button
-                onClick={() => handleResize('decrease')}
-                className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-              >
-                -
-              </button>
-              <div className="text-xs text-gray-500">
-                {Math.round(designTransform.scale * 100)}%
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Select Color</h3>
+                <ColorPicker color={color} onChange={setColor} />
               </div>
-              <button
-                onClick={() => handleResize('increase')}
-                className="text-gray-700 hover:text-blue-500 w-6 h-6 flex items-center justify-center rounded-full"
-              >
-                +
-              </button>
-            </div>
-          </div>
 
-          <div className="flex flex-col md:flex-row">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">Customize Your T-Shirt</h1>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <h3 className="text-sm font-medium mb-1">Select Color</h3>
-            <ColorPicker color={color} onChange={setColor} />
-          </div>
-
-          <div className="mb-4">
-            <h3 className="text-sm font-medium mb-1">Select Size</h3>
-            <SizeSelector size={size} onChange={setSize} />
-          </div>
-
-          <div className="mb-4">
-            <h3 className="text-sm font-medium mb-1">Product Details</h3>
-            <div className="bg-gray-50 p-2 rounded-lg text-sm">
-              <div className="grid grid-cols-2 gap-x-4">
-                <div>• 100% Premium Cotton</div>
-                <div>• Pre-shrunk fabric</div>
-                <div>• Classic fit</div>
-                <div>• Double-needle hem</div>
+              <div>
+                <h3 className="text-sm font-medium mb-2">Select Size</h3>
+                <SizeSelector size={size} onChange={setSize} />
               </div>
-            </div>
-          </div>
 
-          <div className="mb-4">
-            <h3 className="text-sm font-medium mb-1">Generate Design</h3>
-            <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
-          </div>
+              <div>
+                <h3 className="text-sm font-medium mb-2">Design Generation</h3>
+                <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+              </div>
 
-          <div className="space-y-4">
-            {designTexture && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsCropping(!isCropping)}
-                    className="flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap"
-                  >
-                    <Crop className="w-4 h-4 mr-1" />
-                    {isCropping ? 'Cancel Crop' : 'Crop Design'}
-                  </button>
-                  <button
-                    onClick={() => handleBackgroundToggle(designTexture, isLoading, setIsLoading, setDesignTexture, setDesignTransform, setError)}
-                    disabled={isLoading}
-                    className={`flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={designTransform.hasBackground ? "Remove background from design" : "Background already removed"}
-                  >
-                    {isLoading ? (
-                      <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    )}
-                    {designTransform.hasBackground ? "Remove Background" : "No Background"}
-                  </button>
-                  <button
-                    onClick={() => setIsPickingColor(!isPickingColor)}
-                    disabled={isLoading}
-                    className={`ml-2 p-1 rounded ${isPickingColor ? 'bg-blue-200' : 'hover:bg-blue-200'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title="Pick color for transparency"
-                  >
-                    {isLoading ? (
-                      <svg className="animate-spin w-4 h-4 text-blue-700" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M7 7h10v10H7z" />
-                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    )}
-                  </button>
-                  {selectedColor && (
-                    <div
-                      className="ml-2 w-4 h-4 rounded border border-gray-300"
-                      style={{ backgroundColor: selectedColor }}
-                    />
-                  )}
-                  <div className="ml-2 text-sm text-gray-600">
-                    {transparency}%
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={transparency}
-                    onChange={(e) => setTransparency(parseInt(e.target.value))}
-                    disabled={isLoading || !selectedColor}
-                    className="w-40 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      WebkitAppearance: 'none',
-                      appearance: 'none',
-                      backgroundColor: '#e5e7eb',
-                      borderRadius: '9999px',
-                      cursor: 'pointer',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={handleReset}
-                    className="flex items-center h-[34px] px-2 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 whitespace-nowrap"
-                    title="Reset transparency"
-                  >
-                    <Undo2 className="w-4 h-4" />
-                  </button>
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <p className="text-sm">{error}</p>
                 </div>
               )}
 
-            <div>
               <button
                 onClick={handleAddToCart}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
@@ -614,34 +524,13 @@ export default function CustomDesign() {
               >
                 {isGenerating ? (
                   <>
-                    <Loader2 className="animate-spin" size={20} />
-                    Processing...
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating...
                   </>
                 ) : (
-                  <>
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path d="M3 12a9 9 0 1 1 18 0 9 9 0 0 1-18 0z" />
-                      <path d="M19 12H5" />
-                      <path d="M15 16l4-4-4-4" />
-                    </svg>
-                    Add to Cart
-                  </>
+                  'Add to Cart'
                 )}
               </button>
-              {error && (
-                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {error}
-                </p>
-              )}
             </div>
           </div>
         </div>
