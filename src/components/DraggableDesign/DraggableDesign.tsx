@@ -39,16 +39,6 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [indicatorPosition, setIndicatorPosition] = useState({ x: 0, y: 0 });
   const [showColorIndicator, setShowColorIndicator] = useState(false);
-  const [cropStyle, setCropStyle] = useState({
-    clip: 'unset',
-    width: 0,
-    height: 0,
-    x: 0,
-    y: 0
-  });
-
-  // Store last crop dimensions for each image
-  const lastCropRef = useRef<{ [key: string]: CropType }>({});
 
   useEffect(() => {
     if (designRef.current) {
@@ -80,25 +70,23 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
 
   useEffect(() => {
     if (isCropping && designRef.current) {
+      // Wait for image to load to get correct dimensions
       const img = designRef.current;
       const imgRect = img.getBoundingClientRect();
       
+      // Only set initial crop if no crop is already set
       if (!crop && onCropChange) {
-        // Check if we have a saved crop for this image
-        const lastCrop = lastCropRef.current[designTexture];
-        
-        const initialCrop = lastCrop || {
+        const initialCrop = {
           unit: 'px',
           x: 0,
           y: 0,
           width: imgRect.width,
           height: imgRect.height
         };
-        
         onCropChange(initialCrop);
       }
     }
-  }, [isCropping, onCropChange, crop, designSize.width, designSize.height, designTexture]);
+  }, [isCropping, onCropChange, crop, designSize.width, designSize.height]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCropping || isPickingDesignColor) return;
@@ -220,64 +208,41 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   }, [isPickingDesignColor]);
 
   const handleCropComplete = useCallback((crop: CropType, percentCrop: CropType) => {
-    if (!crop.width || !crop.height) return;
-    
-    // Save the crop dimensions for this image
-    lastCropRef.current[designTexture] = crop;
-    
-    setCropStyle({
-      clip: 'unset',
-      width: crop.width,
-      height: crop.height,
-      x: crop.x,
-      y: crop.y
-    });
-  }, [designTexture]);
+    if (!designRef.current || !crop.width || !crop.height) return;
 
-  const handleCropChange = useCallback((newCrop: CropType) => {
-    if (onCropChange) {
-      onCropChange(newCrop);
-    }
-  }, [onCropChange]);
+    const image = designRef.current;
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
 
-  const handleCropDone = useCallback(() => {
-    if (crop && cropStyle.width && cropStyle.height && designRef.current) {
-      const img = designRef.current;
-      const imgRect = img.getBoundingClientRect();
-      
-      // Calculate the bottom and right insets
-      const bottomInset = imgRect.height - (cropStyle.y + cropStyle.height);
-      const rightInset = imgRect.width - (cropStyle.x + cropStyle.width);
-      
-      // Create clip path using the calculated insets
-      const clipPath = `inset(${cropStyle.y}px ${rightInset}px ${bottomInset}px ${cropStyle.x}px)`;
-      
-      setCropStyle(prev => ({
-        ...prev,
-        clip: clipPath
-      }));
-      
-      // Save the final crop dimensions
-      lastCropRef.current[designTexture] = {
-        unit: 'px',
-        x: cropStyle.x,
-        y: cropStyle.y,
-        width: cropStyle.width,
-        height: cropStyle.height
-      };
-      
-      if (onCropComplete) {
-        onCropComplete(designTexture);
+    canvas.width = crop.width * scaleX;
+    canvas.height = crop.height * scaleY;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width * scaleX,
+      crop.height * scaleY
+    );
+
+    // Convert canvas to blob and create URL
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const croppedImageUrl = URL.createObjectURL(blob);
+        if (onCropComplete) {
+          onCropComplete(croppedImageUrl);
+        }
       }
-    }
-  }, [crop, cropStyle, onCropComplete, designTexture]);
-
-  // Cleanup last crop data when component unmounts
-  useEffect(() => {
-    return () => {
-      lastCropRef.current = {};
-    };
-  }, []);
+    });
+  }, [onCropComplete]);
 
   return (
     <div 
@@ -310,31 +275,69 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
             transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
             transformOrigin: 'center',
             width: `${designSize.width}px`,
-            height: `${designSize.height}px`,
-            ...((!isCropping && cropStyle.clip !== 'unset') ? {
-              clipPath: cropStyle.clip
-            } : {})
+            height: `${designSize.height}px`
           }}
         >
           {isCropping ? (
-            <div className="relative">
-              <ReactCrop
-                crop={crop}
-                onChange={handleCropChange}
-                onComplete={handleCropComplete}
-                className="animate-fade-in"
-              >
-                <img
-                  ref={designRef}
-                  src={designTexture}
-                  alt="Design"
-                  style={{ 
-                    width: '100%',
-                    height: '100%',
-                    cursor: isPickingDesignColor ? 'crosshair' : undefined,
-                    display: 'block',
-                    objectFit: 'contain'
-                  }}
+            <ReactCrop
+              crop={crop}
+              onChange={onCropChange}
+              onComplete={handleCropComplete}
+              className="animate-fade-in"
+            >
+              <img
+                ref={designRef}
+                src={designTexture}
+                alt="Design"
+                style={{ 
+                  width: '100%',
+                  height: '100%',
+                  cursor: isPickingDesignColor ? 'crosshair' : undefined,
+                  display: 'block',
+                  objectFit: 'contain'
+                }}
+                onClick={handleImageColorPick}
+                onMouseMove={handleImageMouseMove}
+                draggable={false}
+              />
+            </ReactCrop>
+          ) : (
+            <img
+              ref={designRef}
+              src={designTexture}
+              alt="Design"
+              style={{ 
+                width: '100%',
+                height: '100%',
+                cursor: isPickingDesignColor ? 'crosshair' : undefined,
+                display: 'block',
+                objectFit: 'contain'
+              }}
+              onClick={handleImageColorPick}
+              onMouseMove={handleImageMouseMove}
+              draggable={false}
+            />
+          )}
+        </div>
+      </div>
+      {isPickingDesignColor && (
+        <ColorMagnifier
+          x={mousePosition.x}
+          y={mousePosition.y}
+          color={previewColor}
+        />
+      )}
+      {showColorIndicator && (
+        <ColorIndicator
+          x={indicatorPosition.x}
+          y={indicatorPosition.y}
+          color={previewColor}
+          isActive={true}
+        />
+      )}
+    </div>
+  );
+};
                   onClick={handleImageColorPick}
                   onMouseMove={handleImageMouseMove}
                   draggable={false}

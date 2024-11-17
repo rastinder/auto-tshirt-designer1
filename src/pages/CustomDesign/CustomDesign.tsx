@@ -166,25 +166,6 @@ const CustomDesign: React.FC = () => {
 
   const currentObjectUrl = useRef<string | null>(null);
 
-  const handleCropClick = () => {
-    if (!isCropping) {
-      // Entering crop mode
-      setIsCropping(true);
-    } else {
-      // Cancel crop
-      setIsCropping(false);
-      setCrop(undefined);
-      setCompletedCrop(undefined);
-    }
-  };
-
-  const handleCropComplete = (designTexture: string) => {
-    // Only exit crop mode when explicitly completed
-    setIsCropping(false);
-    setCrop(undefined);
-    setCompletedCrop(undefined);
-  };
-
   useEffect(() => {
     return () => {
       if (currentObjectUrl.current) {
@@ -194,13 +175,21 @@ const CustomDesign: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Cleanup previous object URL when design texture changes
-    return () => {
-      if (currentObjectUrl.current && currentObjectUrl.current !== designTexture) {
-        URL.revokeObjectURL(currentObjectUrl.current);
-      }
-    };
+    if (currentObjectUrl.current) {
+      URL.revokeObjectURL(currentObjectUrl.current);
+    }
   }, [designTexture]);
+
+  const handleCropComplete = (croppedImageUrl: string) => {
+    if (currentObjectUrl.current) {
+      URL.revokeObjectURL(currentObjectUrl.current);
+    }
+    currentObjectUrl.current = croppedImageUrl;
+    setDesignTexture(croppedImageUrl);
+    setIsCropping(false);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  };
 
   const handleUndo = () => {
     if (designTexture) {
@@ -451,6 +440,15 @@ const CustomDesign: React.FC = () => {
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleCropClick = () => {
+    setIsCropping(prev => !prev);
+    // Only reset crop when exiting crop mode
+    if (isCropping) {
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }
+  };
 
   return (
     <DndProvider backend={HTML5Backend}>
