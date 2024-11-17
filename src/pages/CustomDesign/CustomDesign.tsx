@@ -1,6 +1,6 @@
 // CustomDesign.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Helmet } from 'react-helmet';
+import { Helmet } from 'react-helmet-async';
 import { Crop, AlertCircle, Loader2, Undo2, RotateCcw } from 'lucide-react';
 import { ColorPicker } from '../../components/TShirtCustomizer/ColorPicker';
 import { SizeSelector } from '../../components/TShirtCustomizer/SizeSelector';
@@ -39,14 +39,20 @@ const CustomDesign: React.FC = () => {
   const [designHistory, setDesignHistory] = useState<string[]>([]);
 
   const tshirtViews = {
-    hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
-    laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
-    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_red:0/e_blue:0/e_green:0/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg"
+    hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
+    laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
+    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg"
   };
 
   const getColorAdjustedImage = (imageUrl: string, color: string) => {
-    const hexColor = color.replace('#', '');
-    return imageUrl.replace(/e_red:0\/e_blue:0\/e_green:0/, `e_replace_color:${hexColor}:60:white`);
+    // Convert hex to RGB
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Replace the color in the URL
+    return imageUrl.replace(/co_rgb:FFFFFF/, `co_rgb:${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`);
   };
 
   useEffect(() => {
@@ -288,24 +294,9 @@ const CustomDesign: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <div className="flex flex-col space-y-3">
-          {/* Upper Controls - Size and Rotation */}
+          {/* Upper Controls - Rotation */}
           <div className="mb-4 flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
             <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
-                <select
-                  value={size}
-                  onChange={(e) => setSize(e.target.value)}
-                  className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="XS">XS</option>
-                  <option value="S">S</option>
-                  <option value="M">M</option>
-                  <option value="L">L</option>
-                  <option value="XL">XL</option>
-                  <option value="2XL">2XL</option>
-                </select>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rotation</label>
                 <input
@@ -327,13 +318,13 @@ const CustomDesign: React.FC = () => {
           {/* Main Design Area */}
           <div className="relative bg-white rounded-lg shadow-lg p-4">
             {/* Design Display */}
-            {designTexture && (
-              <div className="relative w-full aspect-square">
-                <img
-                  src={getColorAdjustedImage(tshirtViews['hanging'], color)}
-                  alt="T-Shirt"
-                  className="w-full h-full object-contain"
-                />
+            <div className="relative w-full aspect-square">
+              <img
+                src={getColorAdjustedImage(tshirtViews['hanging'], color)}
+                alt="T-Shirt"
+                className="w-full h-full object-contain"
+              />
+              {designTexture && (
                 <Draggable onDragStart={handleDragStart}>
                   <div
                     ref={designRef}
@@ -352,8 +343,8 @@ const CustomDesign: React.FC = () => {
                     />
                   </div>
                 </Draggable>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Inside Box Controls */}
             <div className="mt-4 border-t pt-4">

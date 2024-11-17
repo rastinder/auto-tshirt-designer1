@@ -12,6 +12,7 @@ import json
 from server.utils import serialize_datetime
 from PIL import Image
 import io
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ class TaskQueue:
         self.tasks = {}  # type: Dict[str, Task]
         self.pending_tasks = []  # type: List[Task]
         self.processing_tasks = {}  # type: Dict[str, Task]
+        self.completed_tasks = {}  # type: Dict[str, dict]
+        self.failed_tasks = set()  # type: Set[str]
         self.task_timeout = 300  # 5 minutes
         self.api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
         self.api_headers = {"Authorization": "Bearer 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"}
@@ -128,14 +131,17 @@ class TaskQueue:
                     "image_data": f"data:image/png;base64,{base64_data}",
                     "source": "api"
                 }
+                self.completed_tasks[task_id] = task.result
                 logger.info(f"API generation successful for task {task_id}")
             except Exception as e:
                 logger.error(f"Failed to save image for task {task_id}: {str(e)}")
                 task.status = TaskStatus.FAILED
                 task.result = {"error": str(e)}
+                self.failed_tasks.add(task_id)
         else:
             task.status = TaskStatus.FAILED
             task.result = {"error": "API generation failed"}
+            self.failed_tasks.add(task_id)
             logger.info(f"API generation failed for task {task_id}")
         
         return task_id
@@ -166,6 +172,7 @@ class TaskQueue:
             task.result = {"error": "Task timed out"}
             if task.id in self.processing_tasks:
                 del self.processing_tasks[task.id]
+            self.failed_tasks.add(task_id)
             
         return json.loads(json.dumps({
             "task_id": task.id,
@@ -199,8 +206,10 @@ class TaskQueue:
                         logger.error(f"Error reading image data: {str(e)}")
                 
                 task.result = result
+                self.completed_tasks[task_id] = result
         elif status == TaskStatus.FAILED:
             task.result = result or {"error": "Unknown error"}
+            self.failed_tasks.add(task_id)
             
         logger.info(f"Updated task {task_id} status to {status}")
 
@@ -216,3 +225,43 @@ class TaskQueue:
                 task.result = {"error": "Task timed out"}
                 task.completed_at = current_time
                 del self.processing_tasks[task_id]
+                self.failed_tasks.add(task_id)
+
+    def size(self) -> int:
+        """Return the number of tasks in the queue."""
+        return len(self.pending_tasks) + len(self.processing_tasks)
+
+    def pending_count(self) -> int:
+        """Return the number of pending tasks."""
+        return len(self.pending_tasks)
+
+    def processing_count(self) -> int:
+        """Return the number of processing tasks."""
+        return len(self.processing_tasks)
+
+    async def wait_for_result(self, task_id: str, timeout: int = 30) -> Optional[dict]:
+        """Wait for a task result with timeout.
+        
+        Args:
+            task_id: The ID of the task to wait for
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            The task result if available within timeout, None otherwise
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            # Check if task is completed
+            if task_id in self.completed_tasks:
+                return self.completed_tasks[task_id]
+                
+            # Check if task failed
+            if task_id in self.failed_tasks:
+                return None
+                
+            # Wait a bit before checking again
+            await asyncio.sleep(0.5)
+            
+        # Timeout reached
+        logger.warning(f"Task {task_id} timed out after {timeout} seconds")
+        return None

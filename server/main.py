@@ -1,11 +1,13 @@
 import os
 import sys
 import json
-import logging
 import base64
+import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Set
+from fastapi.responses import RedirectResponse
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, File, UploadFile, Response, BackgroundTasks, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,38 +23,43 @@ from server.models import Task, DesignRequest, TaskStatus
 from server.task_queue import TaskQueue
 from server.utils import serialize_datetime
 
-import io
-from PIL import Image
-from rembg import remove
-import cv2
-import numpy as np
-
 # Get the application root directory
 ROOT_DIR = Path(__file__).parent.parent.resolve()
 OUTPUTS_DIR = ROOT_DIR / "outputs"
-
-# Create outputs directory if it doesn't exist
-OUTPUTS_DIR.mkdir(exist_ok=True, parents=True)
-
-# Configure logging
 LOG_DIR = ROOT_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "server.log"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+def setup_directories():
+    """Setup required directories"""
+    OUTPUTS_DIR.mkdir(exist_ok=True, parents=True)
+    LOG_DIR.mkdir(exist_ok=True)
+
+def setup_logging():
+    """Configure logging"""
+    LOG_FILE = LOG_DIR / "server.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(LOG_FILE),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+# Initialize directories and logging
+setup_directories()
+logger = setup_logging()
+logger.info("Starting FastAPI server initialization...")
 
 # Initialize FastAPI app
-app = FastAPI(title="AI T-Shirt Design API")
+app = FastAPI(
+    title="AI T-Shirt Design API",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+)
 
-# Configure CORS with specific origins
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -63,76 +70,60 @@ app.add_middleware(
     max_age=3600
 )
 
-# Custom static files handler with CORS
 class CORSStaticFiles(StaticFiles):
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            path = scope.get("path", "")
-            logger.info(f"Attempting to serve static file: {path}")
-            
-        response = await super().__call__(scope, receive, send)
-        
-        if scope["type"] == "http":
-            # Add CORS headers to the response
-            headers = [
-                (b"access-control-allow-origin", b"*"),
-                (b"access-control-allow-methods", b"GET, OPTIONS"),
-                (b"access-control-allow-headers", b"*"),
-                (b"access-control-expose-headers", b"*"),
-                (b"cache-control", b"no-cache"),
-                (b"content-type", b"image/png"),
-                (b"vary", b"origin"),
-            ]
-            
             async def wrapped_send(message):
                 if message["type"] == "http.response.start":
-                    message["headers"].extend(headers)
-                    logger.info(f"Serving static file with headers: {headers}")
+                    message["headers"].extend([
+                        (b"access-control-allow-origin", b"*"),
+                        (b"access-control-allow-methods", b"GET, OPTIONS"),
+                        (b"access-control-allow-headers", b"*"),
+                        (b"access-control-expose-headers", b"*"),
+                        (b"cache-control", b"no-cache"),
+                        (b"vary", b"origin"),
+                    ])
                 await send(message)
-            
-            await response(scope, receive, wrapped_send)
-        return response
+            return await super().__call__(scope, receive, wrapped_send)
+        return await super().__call__(scope, receive, send)
 
-# Mount static files directory for serving images with CORS
+# Mount static files directory
 app.mount("/images", CORSStaticFiles(directory=str(OUTPUTS_DIR)), name="images")
-
-# Add OPTIONS handler for CORS preflight requests
-@app.options("/images/{path:path}")
-async def options_handler(path: str):
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Max-Age": "3600",
-        },
-    )
-
-@app.options("/color_transparency")
-async def color_transparency_options():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
 
 # Initialize task queue
 task_queue = TaskQueue()
-
-# Store design history in memory (last 5 designs)
-design_history = []
+design_history: list = []
 
 # Connected workers
 connected_workers: Dict[str, WebSocket] = {}
 
 @app.get("/")
+async def root():
+    """Root endpoint that redirects to /health"""
+    return RedirectResponse(url="/health")
+
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    response_data = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "components": {
+            "workers": {
+                "status": "healthy" if connected_workers else "degraded",
+                "count": len(connected_workers)
+            },
+            "queue": {
+                "status": "healthy",
+                "size": task_queue.size()
+            },
+            "storage": {
+                "status": "healthy"
+            }
+        }
+    }
+
     try:
         # Check if outputs directory is writable
         test_file = OUTPUTS_DIR / "test.txt"
@@ -141,38 +132,26 @@ async def health_check():
             test_file.unlink()
         except Exception as e:
             logger.error(f"Outputs directory not writable: {str(e)}")
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "unhealthy",
-                    "error": "Outputs directory not writable",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
+            response_data["status"] = "degraded"
+            response_data["components"]["storage"] = {
+                "status": "unhealthy",
+                "error": "Outputs directory not writable"
+            }
 
-        # Check worker connections
-        if not connected_workers:
-            logger.warning("No workers connected")
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "degraded",
-                    "warning": "No workers connected",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
+        # Update overall status based on component statuses
+        if any(component["status"] == "unhealthy" for component in response_data["components"].values()):
+            response_data["status"] = "unhealthy"
+        elif any(component["status"] == "degraded" for component in response_data["components"].values()):
+            response_data["status"] = "degraded"
 
-        return {
-            "status": "healthy",
-            "workers": len(connected_workers),
-            "queue_size": task_queue.size(),
-            "timestamp": datetime.utcnow().isoformat(),
-            "version": "1.0.0"
-        }
+        return JSONResponse(
+            status_code=200,  # Always return 200 OK, let the client decide based on the status field
+            content=response_data
+        )
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return JSONResponse(
-            status_code=503,
+            status_code=500,  # Only return 500 for unexpected errors
             content={
                 "status": "unhealthy",
                 "error": str(e),
@@ -229,6 +208,7 @@ async def save_design(design_data: dict):
             image_data = design_data["image_data"]
             if isinstance(image_data, str) and image_data.startswith('data:image'):
                 image_data = image_data.split(',')[1]
+            import base64
             base64.b64decode(image_data)
         except Exception as e:
             logger.error(f"Invalid image data: {str(e)}")
@@ -299,110 +279,118 @@ async def get_image(image_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/remove-background")
-async def remove_background(file: UploadFile = File(...)):
+async def remove_background(request: dict = Body(...)):
+    """Remove background from uploaded image"""
     try:
-        # Read the uploaded image
-        image_data = await file.read()
+        # Lazy import heavy libraries
+        import io
+        from PIL import Image
+        from rembg import remove
+        import numpy as np
+        
+        # Decode base64 image
+        image_data = base64.b64decode(request["image"])
         input_image = Image.open(io.BytesIO(image_data))
         
         # Remove background
         output_image = remove(input_image)
         
-        # Convert to PNG format with transparency
-        output_buffer = io.BytesIO()
-        output_image.save(output_buffer, format='PNG')
-        output_buffer.seek(0)
+        # Convert back to base64
+        img_byte_arr = io.BytesIO()
+        output_image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
         
-        # Return the processed image
-        return StreamingResponse(
-            output_buffer, 
-            media_type="image/png",
-            headers={
-                'Content-Disposition': 'attachment; filename="processed_image.png"'
-            }
-        )
+        return JSONResponse({
+            "image": f"data:image/png;base64,{base64.b64encode(img_byte_arr).decode('utf-8')}"
+        })
     except Exception as e:
+        logger.error(f"Error in background removal: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/color_transparency")
+@app.post("/color-transparency")
 async def color_transparency(
     file: UploadFile = File(...),
     color: str = Form(...),
     tolerance: float = Form(0.5)
 ):
+    """Make specific color transparent"""
     try:
-        logger.info(f"Received color transparency request: color={color}, tolerance={tolerance}")
+        # Lazy import heavy libraries
+        import io
+        import cv2
+        import numpy as np
+        from PIL import Image
         
-        # Read the image
+        # Process image
         contents = await file.read()
         nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # Convert hex color to BGR
+        color = color.lstrip('#')
+        rgb = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+        bgr = (rgb[2], rgb[1], rgb[0])
+        
+        # Create mask for the specified color
+        mask = cv2.inRange(img, 
+                          np.array([max(0, x - int(tolerance * 255)) for x in bgr]),
+                          np.array([min(255, x + int(tolerance * 255)) for x in bgr]))
+        
+        # Add alpha channel
+        b, g, r = cv2.split(img)
+        alpha = cv2.bitwise_not(mask)
+        img_rgba = cv2.merge((b, g, r, alpha))
+        
+        # Convert to PNG
+        is_success, buffer = cv2.imencode(".png", img_rgba)
+        if not is_success:
+            raise HTTPException(status_code=500, detail="Failed to encode image")
+        
+        return Response(content=buffer.tobytes(), media_type="image/png")
+    except Exception as e:
+        logger.error(f"Error in color transparency: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/adjust-transparency")
+async def adjust_transparency(request: dict = Body(...)):
+    """Make image transparent based on transparency value"""
+    try:
+        # Lazy import heavy libraries
+        import io
+        import cv2
+        import numpy as np
+        from PIL import Image
+        
+        # Decode base64 image
+        image_data = base64.b64decode(request["image"])
+        nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         
-        if img is None:
-            raise HTTPException(status_code=400, detail="Failed to decode image")
+        # If image doesn't have alpha channel, add it
+        if img.shape[2] == 3:
+            b, g, r = cv2.split(img)
+            alpha = np.ones(b.shape, dtype=b.dtype) * 255
+            img = cv2.merge((b, g, r, alpha))
             
-        if len(img.shape) < 3:
-            raise HTTPException(status_code=400, detail="Image must be in color format")
+        # Adjust alpha channel
+        b, g, r, a = cv2.split(img)
+        transparency = float(request["transparency"])
+        alpha = cv2.multiply(a, 1 - transparency)
+        img_rgba = cv2.merge((b, g, r, alpha.astype(np.uint8)))
         
-        if color is None or not color:
-            raise HTTPException(status_code=400, detail="Color parameter is required")
+        # Convert to PNG
+        is_success, buffer = cv2.imencode(".png", img_rgba)
+        if not is_success:
+            raise HTTPException(status_code=500, detail="Failed to encode image")
             
-        # Convert BGR to RGB
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # Convert to base64
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        # Ensure color is in correct hex format (without #)
-        color = color.lstrip('#')  # Remove # if present
-        if len(color) != 6:
-            raise HTTPException(status_code=400, detail="Invalid color format. Must be a 6-digit hex color (e.g., FF0000)")
-            
-        try:
-            r = int(color[0:2], 16)
-            g = int(color[2:4], 16)
-            b = int(color[4:6], 16)
-            target_color = np.array([r, g, b])
-            logger.info(f"Target color RGB: {target_color}")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid color format. Must be a valid hex color (e.g., FF0000)")
-        
-        # Create alpha channel based on color similarity
-        height, width = img_rgb.shape[:2]
-        alpha = np.ones((height, width), dtype=np.uint8) * 255
-        
-        # Calculate color difference and create mask
-        color_diff = np.sqrt(np.sum((img_rgb - target_color) ** 2, axis=2))
-        max_diff = 255 * np.sqrt(3)  # Maximum possible difference
-        similarity = 1 - (color_diff / max_diff)
-        mask = similarity > (1 - tolerance)
-        
-        logger.info(f"Applying transparency with tolerance: {tolerance}")
-        
-        # Apply transparency
-        alpha[mask] = 0
-        
-        # Convert to RGBA
-        img_rgba = np.dstack((img_rgb, alpha))
-        
-        # Convert to PIL Image and save to BytesIO
-        pil_img = Image.fromarray(img_rgba)
-        img_byte_arr = io.BytesIO()
-        pil_img.save(img_byte_arr, format='PNG')
-        img_byte_arr.seek(0)
-        
-        logger.info("Successfully processed image")
-        
-        # Return the processed image with proper headers
-        return StreamingResponse(
-            img_byte_arr,
-            media_type="image/png",
-            headers={
-                "Content-Disposition": "attachment; filename=transparent.png",
-                "Content-Type": "image/png",
-                "Cache-Control": "no-cache"
-            }
-        )
-        
+        return JSONResponse({
+            "image": f"data:image/png;base64,{img_base64}"
+        })
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
+        logger.error(f"Error adjusting transparency: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws")
@@ -478,6 +466,70 @@ async def websocket_worker(websocket: WebSocket):
         logger.error(f"WebSocket error: {str(e)}")
         if worker_id and worker_id in connected_workers:
             del connected_workers[worker_id]
+
+@app.post("/generate")
+async def generate_design(request: dict = Body(...)):
+    """Primary endpoint for design generation"""
+    try:
+        design_request = DesignRequest(
+            prompt=request["prompt"],
+            negative_prompt=request.get("negative_prompt", ""),
+            num_inference_steps=request.get("num_inference_steps", 30),
+            guidance_scale=request.get("guidance_scale", 7.5)
+        )
+        
+        # Add task to queue and get task ID
+        task_id = await task_queue.add_task(design_request)
+        logger.info(f"Created new task: {task_id}")
+        
+        # Wait for the result (with timeout)
+        result = await task_queue.wait_for_result(task_id, timeout=60)  # Longer timeout for primary endpoint
+        
+        if result and result.get("image_data"):
+            return JSONResponse({
+                "result": {
+                    "image_data": result["image_data"],
+                    "task_id": task_id
+                }
+            })
+        else:
+            raise HTTPException(status_code=500, detail="Design generation failed or timed out")
+            
+    except Exception as e:
+        logger.error(f"Error generating design: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/designs/generate-fallback")
+async def generate_design_fallback(request: dict = Body(...)):
+    """Fallback endpoint for design generation with simplified parameters"""
+    try:
+        design_request = DesignRequest(
+            prompt=request["prompt"],
+            negative_prompt="",
+            num_inference_steps=20,  # Faster generation for fallback
+            guidance_scale=7.0
+        )
+        
+        # Add task to queue and get task ID
+        task_id = await task_queue.add_task(design_request)
+        logger.info(f"Created fallback task: {task_id}")
+        
+        # Wait for the result (with shorter timeout)
+        result = await task_queue.wait_for_result(task_id, timeout=30)  # Shorter timeout for fallback
+        
+        if result and result.get("image_data"):
+            return JSONResponse({
+                "result": {
+                    "image_data": result["image_data"],
+                    "task_id": task_id
+                }
+            })
+        else:
+            raise HTTPException(status_code=500, detail="Fallback generation failed or timed out")
+            
+    except Exception as e:
+        logger.error(f"Error in fallback generation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/design")
 async def create_design(request: DesignRequest):
@@ -635,19 +687,76 @@ async def test_display():
         logger.error(f"Error displaying test dashboard: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/designs/history")
+async def get_design_history():
+    """Get the design history"""
+    try:
+        history_file = OUTPUTS_DIR / "history.json"
+        if not history_file.exists():
+            return JSONResponse([])  # Return empty array if no history exists
+            
+        try:
+            with open(history_file, "r") as f:
+                history = json.load(f)
+                # Return the last 10 designs, most recent first
+                return JSONResponse(history[-10:])
+        except json.JSONDecodeError:
+            logger.error("Error decoding history file")
+            return JSONResponse([])
+            
+    except Exception as e:
+        logger.error(f"Error fetching design history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/designs/save")
+async def save_to_history(request: dict = Body(...)):
+    """Save a design to history"""
+    try:
+        history_file = OUTPUTS_DIR / "history.json"
+        
+        # Load existing history or create new
+        if history_file.exists():
+            try:
+                with open(history_file, "r") as f:
+                    history = json.load(f)
+            except json.JSONDecodeError:
+                history = []
+        else:
+            history = []
+        
+        # Create new history item
+        new_item = {
+            "id": str(uuid.uuid4()),
+            "image_data": request["image_data"],
+            "prompt": request.get("prompt", ""),
+            "created_at": datetime.utcnow().isoformat(),
+            "transform": request.get("transform", None)
+        }
+        
+        # Add to history and save
+        history.append(new_item)
+        with open(history_file, "w") as f:
+            json.dump(history, f)
+            
+        return JSONResponse({"status": "success", "id": new_item["id"]})
+        
+    except Exception as e:
+        logger.error(f"Error saving to history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8000))
     
-    logger.info(f"Starting server on {host}:{port}")
+    logger.info(f"Server initialization complete. Starting server on {host}:{port}")
+    
     uvicorn.run(
-        app,
+        "main:app",
         host=host,
         port=port,
-        log_level="info",
-        ws_ping_interval=30,
-        ws_ping_timeout=10,
-        timeout_keep_alive=65
+        reload=True,
+        workers=1,
+        log_level="info"
     )
