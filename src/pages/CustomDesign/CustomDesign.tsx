@@ -283,6 +283,7 @@ const CustomDesign: React.FC = () => {
   };
 
   const designRef = useRef<HTMLImageElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
   const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
   const isDragging = useRef(false);
 
@@ -318,28 +319,42 @@ const CustomDesign: React.FC = () => {
           {/* Main Design Area */}
           <div className="relative bg-white rounded-lg shadow-lg p-4">
             {/* Design Display */}
-            <div className="relative w-full aspect-square">
-              <img
-                src={getColorAdjustedImage(tshirtViews['hanging'], color)}
-                alt="T-Shirt"
-                className="w-full h-full object-contain"
-              />
+            <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
+              {/* T-shirt layer */}
+              <div className="absolute inset-0 flex items-center justify-center z-0">
+                <img
+                  src={getColorAdjustedImage(tshirtViews['hanging'], color)}
+                  alt="T-Shirt"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              {/* Design layer */}
               {designTexture && (
-                <Draggable onDragStart={handleDragStart}>
+                <Draggable 
+                  nodeRef={nodeRef}
+                  onDragStart={handleDragStart}
+                  defaultPosition={{x: 0, y: 0}}
+                  bounds="parent"
+                >
                   <div
-                    ref={designRef}
+                    ref={nodeRef}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
                     style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: `translate(-50%, -50%) scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
+                      transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
                       cursor: 'move',
+                      width: '50%',
+                      height: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                   >
                     <img
+                      ref={designRef}
                       src={designTexture}
                       alt="Design"
-                      className="max-w-full max-h-full"
+                      className="max-w-full max-h-full object-contain"
+                      style={{ pointerEvents: 'none' }}
                     />
                   </div>
                 </Draggable>
