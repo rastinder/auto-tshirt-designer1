@@ -119,13 +119,18 @@ const CustomDesign: React.FC = () => {
         URL.revokeObjectURL(currentObjectUrl.current);
       }
       setDesignTexture(design);
-      setDesignTransform({
+      // Keep the current position if it exists, otherwise use initial position
+      setDesignTransform(prev => ({
+        ...prev,
         hasBackground: true,
-        texture: null,
+        texture: design,
+        // Keep the existing position if available
+        position: prev.position.x !== 0 && prev.position.y !== 0 
+          ? prev.position 
+          : { x: 300, y: 300 }, // Default center position
         rotation: 0,
-        scale: 1,
-        position: { x: 0, y: 0 }
-      });
+        scale: 1
+      }));
       setIsPickingDesignColor(false);
       setDesignColor('#000000');
       setColorIntensity(0);
@@ -293,16 +298,19 @@ const CustomDesign: React.FC = () => {
     setError(null);
 
     try {
+      // Keep exact current position and transform state
+      const currentTransform = { ...designTransform };
+      
       const processedImageUrl = await DesignService.removeBackground(designTexture);
       if (processedImageUrl) {
-        const currentPosition = designTransform.position;
         setDesignTexture(processedImageUrl);
-        setDesignTransform(prev => ({
-          ...prev,
-          hasBackground: false,
+        setDesignTransform({
+          ...currentTransform,
+          hasBackground: !currentTransform.hasBackground,
           texture: processedImageUrl,
-          position: currentPosition // Keep the current position
-        }));
+          // Keep the exact same position
+          position: currentTransform.position
+        });
       }
     } catch (error) {
       console.error('Error removing background:', error);
@@ -473,7 +481,7 @@ const CustomDesign: React.FC = () => {
             </div>
 
             {/* Main Design Area */}
-            <div className="relative bg-white rounded-lg shadow-lg p-4" ref={containerRef}>
+            <div className="relative bg-white rounded-lg shadow-lg p-4 design-container" ref={containerRef}>
               {/* Design Display */}
               <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
                 {/* T-shirt layer */}
