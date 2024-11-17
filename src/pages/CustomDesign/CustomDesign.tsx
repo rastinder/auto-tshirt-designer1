@@ -388,7 +388,9 @@ const CustomDesign: React.FC = () => {
     if (!designTexture) return;
 
     try {
-      const processedImageUrl = await DesignService.adjustColorIntensity(designTexture, designColor, intensity);
+      // Reverse the intensity value - 0% means no effect, 100% means full effect
+      const reversedIntensity = 100 - intensity;
+      const processedImageUrl = await DesignService.adjustColorIntensity(designTexture, designColor, reversedIntensity);
       if (processedImageUrl) {
         setDesignTexture(processedImageUrl);
       } else {
@@ -402,7 +404,7 @@ const CustomDesign: React.FC = () => {
 
   const handleColorPick = (color: string) => {
     setDesignColor(color);
-    setColorIntensity(0); // Reset intensity when new color is picked
+    setColorIntensity(0); // Reset intensity to 0% (no effect) when new color is picked
   };
 
   // Helper functions for color transformations
@@ -593,7 +595,7 @@ const CustomDesign: React.FC = () => {
 
                         {/* Color Intensity Slider */}
                         <div className="flex items-center gap-2 ml-4">
-                          <span className="text-sm text-gray-500">Intensity:</span>
+                          <span className="text-sm text-gray-500">Effect:</span>
                           <input
                             type="range"
                             min="0"
