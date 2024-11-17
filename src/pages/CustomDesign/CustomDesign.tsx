@@ -93,10 +93,14 @@ const CustomDesign: React.FC = () => {
 
   const handleRetry = () => {
     if (designTexture) {
-      setError('');
-      setIsGenerating(true);
-      // You will need to implement a function to retry the design generation
-      // This is not included in the api.ts file, so you can keep it here or move it to api.ts
+      setDesignTexture(null);
+      setDesignTransform({
+        hasBackground: true,
+        texture: null,
+        rotation: 0,
+        scale: 1,
+        position: { x: 0, y: 0 }
+      });
     }
   };
 
@@ -134,13 +138,25 @@ const CustomDesign: React.FC = () => {
   };
 
   const handleReset = () => {
-    setDesignTransform({
-      hasBackground: true,
-      texture: null,
-      rotation: 0,
-      scale: 1,
-      position: { x: 0, y: 0 }
-    });
+    if (designTexture && containerRef.current) {
+      setDesignTransform(prev => ({
+        ...prev,
+        texture: designTexture,
+        rotation: 0,
+        scale: 1,
+        position: { 
+          x: 300,
+          y: 300
+        },
+        x: 300,
+        y: 300
+      }));
+      
+      setColorIntensity(0);
+      setDesignColor('#000000');
+      setIsPickingDesignColor(false);
+      setIsCropping(false);
+    }
   };
 
   const currentObjectUrl = useRef<string | null>(null);
@@ -437,6 +453,8 @@ const CustomDesign: React.FC = () => {
     setDesignTransform(newTransform);
   };
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -454,7 +472,7 @@ const CustomDesign: React.FC = () => {
             </div>
 
             {/* Main Design Area */}
-            <div className="relative bg-white rounded-lg shadow-lg p-4">
+            <div className="relative bg-white rounded-lg shadow-lg p-4" ref={containerRef}>
               {/* Design Display */}
               <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
                 {/* T-shirt layer */}
@@ -528,7 +546,7 @@ const CustomDesign: React.FC = () => {
                         ) : (
                           <RotateCcw className="w-4 h-4 mr-1.5" />
                         )}
-                        Reload
+                        Remove Image
                       </button>
 
                       <button
