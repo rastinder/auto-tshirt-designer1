@@ -295,17 +295,18 @@ const CustomDesign: React.FC = () => {
     try {
       const processedImageUrl = await DesignService.removeBackground(designTexture);
       if (processedImageUrl) {
+        const currentPosition = designTransform.position;
         setDesignTexture(processedImageUrl);
         setDesignTransform(prev => ({
           ...prev,
-          hasBackground: false
+          hasBackground: false,
+          texture: processedImageUrl,
+          position: currentPosition // Keep the current position
         }));
-      } else {
-        throw new Error('Failed to process image');
       }
     } catch (error) {
-      console.error('Background removal failed:', error);
-      setError('Failed to remove background. Please try again later.');
+      console.error('Error removing background:', error);
+      setError('Failed to process image. Please try again.');
     } finally {
       setIsLoading(false);
     }
