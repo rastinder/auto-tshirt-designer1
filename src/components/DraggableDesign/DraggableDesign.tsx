@@ -14,7 +14,7 @@ interface DraggableDesignProps {
   onCropComplete?: (crop: CropType) => void;
   isPickingDesignColor: boolean;
   setIsPickingDesignColor: (isPicking: boolean) => void;
-  onDesignColorChange: (color: string) => void;
+  onDesignColorChange: (color: string, intensity: number) => void;
 }
 
 export const DraggableDesign: React.FC<DraggableDesignProps> = ({
@@ -147,11 +147,12 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     // Get pixel color
     const pixel = ctx.getImageData(actualX, actualY, 1, 1).data;
     const color = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+    const intensity = Math.round((pixel[0] + pixel[1] + pixel[2]) / 3);
     
     setShowColorIndicator(true);
     setTimeout(() => setShowColorIndicator(false), 1000);
     
-    onDesignColorChange(color);
+    onDesignColorChange(color, intensity);
     setIsPickingDesignColor(false);
   }, [isPickingDesignColor, onDesignColorChange, setIsPickingDesignColor]);
 

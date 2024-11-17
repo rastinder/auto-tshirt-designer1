@@ -26,6 +26,7 @@ interface DesignTransform {
 const CustomDesign: React.FC = () => {
   const [tShirtColor, setTShirtColor] = useState('#ffffff');
   const [designColor, setDesignColor] = useState<string>('#000000');
+  const [colorIntensity, setColorIntensity] = useState(0);
   const [size, setSize] = useState('M');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +124,7 @@ const CustomDesign: React.FC = () => {
       });
       setIsPickingDesignColor(false);
       setDesignColor('#000000');
+      setColorIntensity(0);
     } catch (error) {
       console.error('Error loading previous design:', error);
       setError('Failed to load previous design');
@@ -354,6 +356,30 @@ const CustomDesign: React.FC = () => {
     setPreviewColor(color);
   }, [isPickingDesignColor]);
 
+  // Function to adjust color intensity
+  const adjustColorIntensity = async (intensity: number) => {
+    setColorIntensity(intensity);
+
+    if (!designTexture) return;
+
+    try {
+      const processedImageUrl = await DesignService.adjustColorIntensity(designTexture, designColor, intensity);
+      if (processedImageUrl) {
+        setDesignTexture(processedImageUrl);
+      } else {
+        throw new Error('Failed to adjust color intensity');
+      }
+    } catch (error) {
+      console.error('Error adjusting color intensity:', error);
+      setError('Failed to adjust color intensity. Please try again later.');
+    }
+  };
+
+  const handleColorPick = (color: string) => {
+    setDesignColor(color);
+    setColorIntensity(0); // Reset intensity when new color is picked
+  };
+
   // Helper functions for color transformations
   const getHueRotation = (color: string) => {
     // Convert hex to HSL
@@ -451,7 +477,7 @@ const CustomDesign: React.FC = () => {
                     onCropComplete={handleCropComplete}
                     isPickingDesignColor={isPickingDesignColor}
                     setIsPickingDesignColor={setIsPickingDesignColor}
-                    onDesignColorChange={setDesignColor}
+                    onDesignColorChange={handleColorPick}
                   />
                 )}
               </div>
@@ -536,6 +562,20 @@ const CustomDesign: React.FC = () => {
                           <div className="text-xs text-gray-500 uppercase">
                             {designColor.toUpperCase()}
                           </div>
+                        </div>
+
+                        {/* Color Intensity Slider */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <span className="text-sm text-gray-500">Intensity:</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={colorIntensity}
+                            onChange={(e) => adjustColorIntensity(Number(e.target.value))}
+                            className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <span className="text-sm text-gray-500">{colorIntensity}%</span>
                         </div>
                       </div>
                     </>

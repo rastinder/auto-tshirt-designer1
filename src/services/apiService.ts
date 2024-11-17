@@ -96,6 +96,17 @@ class ApiService {
     });
   }
 
+  public async postFormData<T>(url: string, formData: FormData): Promise<T> {
+    return this.retryRequest(async () => {
+      const response = await this.api.post<T>(url, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    });
+  }
+
   public async put<T>(url: string, data?: any): Promise<T> {
     return this.retryRequest(async () => {
       const response = await this.api.put<T>(url, data);

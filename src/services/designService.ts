@@ -126,6 +126,58 @@ export class DesignService {
     }
   }
 
+  static async adjustColorIntensity(
+    imageBase64: string,
+    color: string,
+    intensity: number
+  ): Promise<string> {
+    try {
+      // Convert base64 to blob
+      const base64Data = imageBase64.includes('base64,')
+        ? imageBase64.split('base64,')[1]
+        : imageBase64;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/png' });
+      const file = new File([blob], 'design.png', { type: 'image/png' });
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('color', color.replace('#', '')); // Remove # from hex color
+      formData.append('tolerance', (1 - intensity/100).toString()); // Convert intensity to tolerance
+
+      // Call color transparency endpoint using regular post since it returns binary data
+      const response = await apiService.api.post('/color-transparency', formData, {
+        responseType: 'blob',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      return new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert response to base64'));
+          }
+        };
+        reader.onerror = () => reject(new Error('Failed to read response blob'));
+        reader.readAsDataURL(response.data);
+      });
+    } catch (error) {
+      console.error('Error adjusting color intensity:', error);
+      throw new Error('Failed to adjust color intensity');
+    }
+  }
+
   static async saveDesignToHistory(imageData: string): Promise<void> {
     try {
       await apiService.post('/designs/save', { image_data: imageData });
