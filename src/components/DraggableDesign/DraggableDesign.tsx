@@ -11,7 +11,7 @@ interface DraggableDesignProps {
   isCropping: boolean;
   crop?: CropType;
   onCropChange?: (crop: CropType) => void;
-  onCropComplete?: (crop: CropType) => void;
+  onCropComplete?: (croppedImageUrl: string) => void;
   isPickingDesignColor: boolean;
   setIsPickingDesignColor: (isPicking: boolean) => void;
   onDesignColorChange: (color: string, intensity: number) => void;
@@ -39,6 +39,13 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [indicatorPosition, setIndicatorPosition] = useState({ x: 0, y: 0 });
   const [showColorIndicator, setShowColorIndicator] = useState(false);
+  const [cropStyle, setCropStyle] = useState({
+    clip: 'unset',
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0
+  });
 
   useEffect(() => {
     if (designRef.current) {
@@ -67,6 +74,24 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
       };
     }
   }, [designTexture]);
+
+  useEffect(() => {
+    if (isCropping && designRef.current) {
+      const img = designRef.current;
+      const imgRect = img.getBoundingClientRect();
+      
+      if (!crop && onCropChange) {
+        const initialCrop = {
+          unit: 'px',
+          x: 0,
+          y: 0,
+          width: imgRect.width,
+          height: imgRect.height
+        };
+        onCropChange(initialCrop);
+      }
+    }
+  }, [isCropping, onCropChange, crop, designSize.width, designSize.height]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCropping || isPickingDesignColor) return;
@@ -187,6 +212,47 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     setPreviewColor(color);
   }, [isPickingDesignColor]);
 
+  const handleCropComplete = useCallback((crop: CropType, percentCrop: CropType) => {
+    if (!crop.width || !crop.height) return;
+    
+    setCropStyle({
+      clip: 'unset',
+      width: crop.width,
+      height: crop.height,
+      x: crop.x,
+      y: crop.y
+    });
+  }, []);
+
+  const handleCropChange = useCallback((newCrop: CropType) => {
+    if (onCropChange) {
+      onCropChange(newCrop);
+    }
+  }, [onCropChange]);
+
+  const handleCropDone = useCallback(() => {
+    if (crop && cropStyle.width && cropStyle.height && designRef.current) {
+      const img = designRef.current;
+      const imgRect = img.getBoundingClientRect();
+      
+      // Calculate the bottom and right insets
+      const bottomInset = imgRect.height - (cropStyle.y + cropStyle.height);
+      const rightInset = imgRect.width - (cropStyle.x + cropStyle.width);
+      
+      // Create clip path using the calculated insets
+      const clipPath = `inset(${cropStyle.y}px ${rightInset}px ${bottomInset}px ${cropStyle.x}px)`;
+      
+      setCropStyle(prev => ({
+        ...prev,
+        clip: clipPath
+      }));
+      
+      if (onCropComplete) {
+        onCropComplete(designTexture);
+      }
+    }
+  }, [crop, cropStyle, onCropComplete, designTexture]);
+
   return (
     <div 
       ref={containerRef} 
@@ -211,44 +277,55 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="absolute z-10"
+        className={`absolute z-10 ${isCropping ? 'crop-active' : ''}`}
       >
         <div
           style={{
             transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
             transformOrigin: 'center',
             width: `${designSize.width}px`,
-            height: `${designSize.height}px`
+            height: `${designSize.height}px`,
+            ...((!isCropping && cropStyle.clip !== 'unset') ? {
+              clipPath: cropStyle.clip
+            } : {})
           }}
         >
           {isCropping ? (
-            <ReactCrop
-              crop={crop}
-              onChange={onCropChange}
-              onComplete={onCropComplete}
-            >
-              <img
-                ref={designRef}
-                src={designTexture}
-                alt="Design"
-                style={{ 
-                  width: '100%',
-                  height: '100%',
-                  cursor: isPickingDesignColor ? 'crosshair' : undefined,
-                  display: 'block',
-                  objectFit: 'contain'
-                }}
-                onClick={handleImageColorPick}
-                onMouseMove={handleImageMouseMove}
-                draggable={false}
-              />
-            </ReactCrop>
+            <div className="relative">
+              <ReactCrop
+                crop={crop}
+                onChange={handleCropChange}
+                onComplete={handleCropComplete}
+                className="animate-fade-in"
+              >
+                <img
+                  ref={designRef}
+                  src={designTexture}
+                  alt="Design"
+                  style={{ 
+                    width: '100%',
+                    height: '100%',
+                    cursor: isPickingDesignColor ? 'crosshair' : undefined,
+                    display: 'block',
+                    objectFit: 'contain'
+                  }}
+                  onClick={handleImageColorPick}
+                  onMouseMove={handleImageMouseMove}
+                  draggable={false}
+                />
+              </ReactCrop>
+              <button
+                onClick={handleCropDone}
+                className="absolute bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Apply Crop
+              </button>
+            </div>
           ) : (
             <img
               ref={designRef}
               src={designTexture}
               alt="Design"
-              draggable={false}
               style={{ 
                 width: '100%',
                 height: '100%',
@@ -258,6 +335,7 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
               }}
               onClick={handleImageColorPick}
               onMouseMove={handleImageMouseMove}
+              draggable={false}
             />
           )}
         </div>

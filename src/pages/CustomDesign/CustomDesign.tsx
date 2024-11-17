@@ -166,6 +166,25 @@ const CustomDesign: React.FC = () => {
 
   const currentObjectUrl = useRef<string | null>(null);
 
+  const handleCropClick = () => {
+    if (!isCropping) {
+      // Entering crop mode
+      setIsCropping(true);
+    } else {
+      // Cancel crop
+      setIsCropping(false);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }
+  };
+
+  const handleCropComplete = (designTexture: string) => {
+    // Only exit crop mode when explicitly completed
+    setIsCropping(false);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  };
+
   useEffect(() => {
     return () => {
       if (currentObjectUrl.current) {
@@ -175,53 +194,13 @@ const CustomDesign: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (currentObjectUrl.current) {
-      URL.revokeObjectURL(currentObjectUrl.current);
-    }
-  }, [designTexture]);
-
-  const handleCropComplete = (crop: CropType, percentCrop: CropType) => {
-    if (designRef.current && crop.width && crop.height) {
-      const canvas = document.createElement('canvas');
-      const image = designRef.current;
-      const scaleX = image.naturalWidth / image.width;
-      const scaleY = image.naturalHeight / image.height;
-
-      canvas.width = crop.width * scaleX;
-      canvas.height = crop.height * scaleY;
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(
-          image,
-          crop.x * scaleX,
-          crop.y * scaleY,
-          crop.width * scaleX,
-          crop.height * scaleY,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            // Revoke previous object URL if it exists
-            if (currentObjectUrl.current) {
-              URL.revokeObjectURL(currentObjectUrl.current);
-            }
-            const url = URL.createObjectURL(blob);
-            currentObjectUrl.current = url;
-            if (designTexture) {
-              setDesignHistory(prev => [...prev, designTexture]);
-            }
-            setDesignTexture(url);
-            setIsCropping(false);
-          }
-        });
+    // Cleanup previous object URL when design texture changes
+    return () => {
+      if (currentObjectUrl.current && currentObjectUrl.current !== designTexture) {
+        URL.revokeObjectURL(currentObjectUrl.current);
       }
-    }
-  };
+    };
+  }, [designTexture]);
 
   const handleUndo = () => {
     if (designTexture) {
@@ -475,23 +454,23 @@ const CustomDesign: React.FC = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto px-4 py-2 max-w-7xl">
+      <div className="container mx-auto px-4 py-2 max-w-7xl transition-all duration-300">
         <Helmet>
           <title>Custom T-Shirt Design - AI Generated</title>
         </Helmet>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
             {/* Main Design Area */}
             <div className="relative" ref={containerRef}>
               {/* Design Display */}
-              <div className="relative w-full h-[600px] bg-gray-100 rounded-lg">
+              <div className="relative w-full h-[600px] bg-gray-100 rounded-lg transition-all duration-300">
                 {/* T-shirt layer */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <img
                     src={getColorAdjustedImage(tshirtViews['hanging'], tShirtColor)}
                     alt="T-Shirt"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain transition-all duration-300"
                   />
                 </div>
                 {/* Design layer */}
@@ -512,19 +491,19 @@ const CustomDesign: React.FC = () => {
               </div>
 
               {/* Inside Box Controls */}
-              <div className="mt-4">
+              <div className="mt-4 transition-all duration-300">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Only show controls when design is generated */}
                   {designTexture && (
                     <>
                       {/* Transform Controls Box */}
-                      <div className="bg-white rounded-lg shadow-lg p-6">
+                      <div className="bg-white rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl animate-fadeIn" style={{ animationDelay: '300ms' }}>
                         <div className="flex flex-col gap-3">
                           {/* Color Controls */}
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 transition-all duration-200 hover:bg-gray-50 p-2 rounded-lg">
                             <button
                               onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
-                              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md ${
+                              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 transform active:scale-95 ${
                                 isPickingDesignColor 
                                   ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
                                   : 'bg-white text-gray-700 hover:bg-gray-100'
@@ -535,7 +514,7 @@ const CustomDesign: React.FC = () => {
                             
                             <div className="flex items-center gap-2">
                               <div
-                                className={`w-8 h-8 rounded border border-gray-300 ${
+                                className={`w-8 h-8 rounded border border-gray-300 transition-transform duration-200 hover:scale-110 ${
                                   isPickingDesignColor ? 'ring-2 ring-blue-500' : ''
                                 } hover:border-gray-400`}
                                 style={{ backgroundColor: designColor }}
@@ -548,7 +527,7 @@ const CustomDesign: React.FC = () => {
                                 <span className="text-sm text-gray-500 whitespace-nowrap">Effect:</span>
                                 <button
                                   onClick={() => adjustColorIntensity(Math.max(0, colorIntensity - 1))}
-                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
@@ -558,24 +537,26 @@ const CustomDesign: React.FC = () => {
                                   max="100"
                                   value={colorIntensity}
                                   onChange={(e) => adjustColorIntensity(Number(e.target.value))}
-                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer transition-all duration-200 hover:bg-gray-300"
                                 />
                                 <button
                                   onClick={() => adjustColorIntensity(Math.min(100, colorIntensity + 1))}
-                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                                 >
                                   <Plus className="w-4 h-4" />
                                 </button>
-                                <span className="text-sm text-gray-500 min-w-[40px] text-right">{colorIntensity}%</span>
+                                <span className="text-sm text-gray-500 min-w-[40px] text-right">
+                                  {colorIntensity}%
+                                </span>
                               </div>
                             </div>
                           </div>
 
                           {/* Crop and Reset Buttons */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 transition-all duration-200 hover:bg-gray-50 p-2 rounded-lg">
                             <button
-                              onClick={() => setIsCropping(!isCropping)}
-                              className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md ${
+                              onClick={handleCropClick}
+                              className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 transform active:scale-95 ${
                                 isCropping 
                                   ? 'bg-blue-50 text-blue-700 border border-blue-200' 
                                   : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
@@ -587,10 +568,12 @@ const CustomDesign: React.FC = () => {
                             <button
                               onClick={handleBackgroundToggle}
                               disabled={isLoading}
-                              className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
-                                designTransform.hasBackground 
-                                  ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
-                                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all duration-200 transform active:scale-95 ${
+                                isLoading 
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : designTransform.hasBackground
+                                    ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
+                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
                               }`}
                             >
                               {isLoading ? (
@@ -604,7 +587,7 @@ const CustomDesign: React.FC = () => {
                             <button
                               onClick={handleRetry}
                               disabled={isGenerating}
-                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200 transition-all duration-200 transform active:scale-95"
                             >
                               {isGenerating ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -616,7 +599,7 @@ const CustomDesign: React.FC = () => {
 
                             <button
                               onClick={handleReset}
-                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200 transition-all duration-200 transform active:scale-95"
                             >
                               <Undo2 className="w-4 h-4 mr-1.5" />
                               Reset
@@ -624,11 +607,11 @@ const CustomDesign: React.FC = () => {
                           </div>
 
                           {/* Rotation Slider */}
-                          <div className="flex items-center gap-2 w-full">
+                          <div className="flex items-center gap-2 w-full transition-all duration-200 hover:bg-gray-50 p-2 rounded-lg">
                             <span className="text-sm text-gray-500 whitespace-nowrap">Rotation:</span>
                             <button
                               onClick={() => handleRotationChange(Math.max(0, designTransform.rotation - 1))}
-                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
@@ -638,11 +621,11 @@ const CustomDesign: React.FC = () => {
                               max="360"
                               value={designTransform.rotation}
                               onChange={(e) => handleRotationChange(Number(e.target.value))}
-                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer transition-all duration-200 hover:bg-gray-300"
                             />
                             <button
                               onClick={() => handleRotationChange(Math.min(360, designTransform.rotation + 1))}
-                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
@@ -650,14 +633,14 @@ const CustomDesign: React.FC = () => {
                           </div>
 
                           {/* Scale Slider */}
-                          <div className="flex items-center gap-2 w-full">
+                          <div className="flex items-center gap-2 w-full transition-all duration-200 hover:bg-gray-50 p-2 rounded-lg">
                             <span className="text-sm text-gray-500 whitespace-nowrap">Scale:</span>
                             <button
                               onClick={() => setDesignTransform(prev => ({
                                 ...prev,
                                 scale: Math.max(0.1, prev.scale - 0.1)
                               }))}
-                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
@@ -671,14 +654,14 @@ const CustomDesign: React.FC = () => {
                                 ...prev,
                                 scale: parseFloat(e.target.value)
                               }))}
-                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer transition-all duration-200 hover:bg-gray-300"
                             />
                             <button
                               onClick={() => setDesignTransform(prev => ({
                                 ...prev,
                                 scale: Math.min(2, prev.scale + 0.1)
                               }))}
-                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-all duration-200 transform active:scale-95"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
@@ -693,7 +676,7 @@ const CustomDesign: React.FC = () => {
 
               {/* Lower Controls */}
               {designTexture && (
-                <div className="mt-4">
+                <div className="mt-4 transition-all duration-300">
                   {/* Add any additional controls here if needed */}
                 </div>
               )}
@@ -701,33 +684,33 @@ const CustomDesign: React.FC = () => {
 
             {/* Previous Designs Gallery */}
             {previousDesigns.length > 0 && (
-              <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden transition-all duration-300">
                 <div className="p-2 border-b border-gray-100">
                   <div className="text-xs text-gray-600 font-medium text-center">History</div>
                 </div>
-                <div className="p-2 flex flex-col gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                <div className="p-2 flex flex-col gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent transition-all duration-300">
                   {/* Show unique designs only */}
                   {[...new Set(previousDesigns)].slice(-4).map((design, index, array) => (
                     <button
                       key={design}
                       onClick={() => handleLoadPreviousDesign(design)}
-                      className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
+                      className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all duration-200 hover:scale-105 focus:outline-none focus:border-blue-500 group transition-all duration-300"
                       title={`Load previous design ${array.length - index}`}
                     >
                       <img
                         src={design}
                         alt={`Previous design ${array.length - index}`}
-                        className="w-full h-full object-contain p-1"
+                        className="w-full h-full object-contain p-1 transition-all duration-300"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-                      <div className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-black/50 text-white py-0.5">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors transition-all duration-300" />
+                      <div className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-black/50 text-white py-0.5 transition-all duration-300">
                         #{array.length - index}
                       </div>
                     </button>
                   ))}
                   {isLoadingHistory && (
-                    <div className="flex items-center justify-center p-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                    <div className="flex items-center justify-center p-2 transition-all duration-300">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500 transition-all duration-300" />
                     </div>
                   )}
                 </div>
@@ -735,13 +718,13 @@ const CustomDesign: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
+          <div className="bg-white rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+            <h1 className="text-3xl font-bold mb-6 transition-all duration-300">Customize Your T-Shirt</h1>
 
-            <div className="space-y-6">
+            <div className="space-y-6 transition-all duration-300">
               <div>
-                <h3 className="text-sm font-medium mb-2">Select T-Shirt Color</h3>
-                <div className="flex-1">
+                <h3 className="text-sm font-medium mb-2 transition-all duration-300">Select T-Shirt Color</h3>
+                <div className="flex-1 transition-all duration-300">
                   <ColorPicker
                     color={tShirtColor}
                     onChange={setTShirtColor}
@@ -750,30 +733,30 @@ const CustomDesign: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-medium mb-2">Select Size</h3>
+                <h3 className="text-sm font-medium mb-2 transition-all duration-300">Select Size</h3>
                 <SizeSelector size={size} onChange={setSize} />
               </div>
 
               <div>
-                <h3 className="text-sm font-medium mb-2">Design Generation</h3>
+                <h3 className="text-sm font-medium mb-2 transition-all duration-300">Design Generation</h3>
                 <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
               </div>
 
               {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  <p className="text-sm">{error}</p>
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2 transition-all duration-300">
+                  <AlertCircle className="w-5 h-5 transition-all duration-300" />
+                  <p className="text-sm transition-all duration-300">{error}</p>
                 </div>
               )}
 
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2 transition-all duration-300"
                 disabled={!designTexture || isGenerating}
               >
                 {isGenerating ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin transition-all duration-300" />
                     Generating...
                   </>
                 ) : (

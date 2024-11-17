@@ -62,6 +62,61 @@ body {
   padding-top: 56.25%; /* 16:9 aspect ratio */
 }
 
+/* Crop styles */
+.crop-active {
+  position: relative;
+}
+
+.crop-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px dashed #4f46e5;
+  opacity: 0;
+  animation: fade-in 0.3s ease forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease forwards;
+}
+
+/* Override ReactCrop styles for better visibility */
+.ReactCrop {
+  position: relative;
+  max-width: 100%;
+  background: none !important;
+}
+
+.ReactCrop__crop-selection {
+  border: 2px solid #4f46e5 !important;
+  box-shadow: 0 0 0 9999em rgba(0, 0, 0, 0.4);
+}
+
+.ReactCrop__drag-handle {
+  background-color: #4f46e5 !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+}
+
+.ReactCrop__drag-handle::after {
+  background-color: #4f46e5 !important;
+  border-radius: 50% !important;
+}
+
+.ReactCrop__drag-bar {
+  background-color: transparent !important;
+}
+
 /* Mobile Responsive Adjustments */
 @media (max-width: 640px) {
   .design-container {
