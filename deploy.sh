@@ -9,12 +9,12 @@ sudo apt-get update
 # Install required packages for Python installation
 sudo apt-get install -y software-properties-common
 
-# Add deadsnakes PPA for Python 3.11
+# Add deadsnakes PPA for Python 3.12
 sudo add-apt-repository -y ppa:deadsnakes/ppa
 sudo apt-get update
 
-# Install Python 3.11 and development packages
-sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+# Install Python 3.12.3 and development packages
+sudo apt-get install -y python3.12 python3.12-venv python3.12-dev
 
 # Install required system libraries for background removal
 echo "Installing system dependencies for background removal..."
@@ -35,9 +35,9 @@ PROJECT_ROOT=$(pwd)
 mkdir -p server/outputs
 mkdir -p server/logs
 
-# Create and activate virtual environment with Python 3.11
+# Create and activate virtual environment with Python 3.12
 echo "Creating Python virtual environment..."
-python3.11 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 
 # Add project root to PYTHONPATH
