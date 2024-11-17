@@ -53,9 +53,10 @@ export class DesignService {
       const fullPrompt = `${PROMPT_TEMPLATES.prefix}${prompt}${PROMPT_TEMPLATES.suffix}`;
       const response = await apiService.post<DesignResponse>('/generate', {
         prompt: fullPrompt,
-        negative_prompt: PROMPT_TEMPLATES.negative,
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
+        style: "realistic",
+        colors: [],
+        size: "M",
+        priority: 1
       });
 
       if (!response?.result?.image_data) {
@@ -65,16 +66,8 @@ export class DesignService {
       return response.result.image_data;
     } catch (error) {
       console.error('Error generating design:', error);
-      // Try fallback endpoint if main generation fails
-      try {
-        const fallbackResponse = await apiService.post<DesignResponse>('/designs/generate-fallback', {
-          prompt: prompt,
-        });
-        if (fallbackResponse?.result?.image_data) {
-          return fallbackResponse.result.image_data;
-        }
-      } catch (fallbackError) {
-        console.error('Fallback generation failed:', fallbackError);
+      if (error instanceof Error) {
+        throw error;
       }
       throw new Error('Failed to generate design. Please try again later.');
     }

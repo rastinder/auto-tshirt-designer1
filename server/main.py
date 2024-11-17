@@ -393,89 +393,16 @@ async def adjust_transparency(request: dict = Body(...)):
         logger.error(f"Error adjusting transparency: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.websocket("/ws")
-async def websocket_worker(websocket: WebSocket):
-    """WebSocket endpoint for worker connections"""
-    await websocket.accept()
-    worker_id = None
-    
-    try:
-        while True:
-            data = await websocket.receive_json()
-            logger.info(f"Received WebSocket message: {data}")
-            
-            message_type = data.get("type")
-            
-            if message_type == "connect":
-                worker_id = data.get("worker_id")
-                connected_workers[worker_id] = websocket
-                await websocket.send_json({
-                    "type": "connected",
-                    "status": "ok"
-                })
-                logger.info(f"Worker {worker_id} connected")
-            
-            elif message_type == "worker_status":
-                if worker_id:
-                    next_task = await task_queue.get_next_task()
-                    if next_task:
-                        await websocket.send_json({
-                            "type": "task",
-                            "data": {
-                                "id": next_task.id,
-                                **next_task.request
-                            }
-                        })
-            
-            elif message_type == "result":
-                task_id = data.get("task_id")
-                if task_id:
-                    # Handle image data
-                    image_data = data.get("image_data")
-                    image_name = data.get("image_name")
-                    
-                    if image_data and image_name:
-                        image_path = OUTPUTS_DIR / image_name
-                        image_bytes = base64.b64decode(image_data)
-                        
-                        with open(image_path, "wb") as f:
-                            f.write(image_bytes)
-                        logger.info(f"Saved image to: {image_path}")
-                        
-                        # Update task status with correct image URL
-                        result = {
-                            "image_url": f"/images/{image_name}",
-                            "metadata": data.get("metadata", {})
-                        }
-                    else:
-                        result = {"error": data.get("error", "Unknown error")}
-                    
-                    await task_queue.update_task_status(
-                        task_id,
-                        TaskStatus.COMPLETED if data.get("status") == "completed" else TaskStatus.FAILED,
-                        result
-                    )
-    
-    except WebSocketDisconnect:
-        if worker_id:
-            logger.info(f"Worker {worker_id} disconnected")
-            if worker_id in connected_workers:
-                del connected_workers[worker_id]
-    
-    except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}")
-        if worker_id and worker_id in connected_workers:
-            del connected_workers[worker_id]
-
 @app.post("/generate")
 async def generate_design(request: dict = Body(...)):
     """Primary endpoint for design generation"""
     try:
         design_request = DesignRequest(
             prompt=request["prompt"],
-            negative_prompt=request.get("negative_prompt", ""),
-            num_inference_steps=request.get("num_inference_steps", 30),
-            guidance_scale=request.get("guidance_scale", 7.5)
+            style=request.get("style", "realistic"),
+            colors=request.get("colors", []),
+            size=request.get("size", "M"),
+            priority=request.get("priority", 1)
         )
         
         # Add task to queue and get task ID
@@ -483,7 +410,7 @@ async def generate_design(request: dict = Body(...)):
         logger.info(f"Created new task: {task_id}")
         
         # Wait for the result (with timeout)
-        result = await task_queue.wait_for_result(task_id, timeout=60)  # Longer timeout for primary endpoint
+        result = await task_queue.wait_for_result(task_id, timeout=120)  # Increased timeout to 120 seconds
         
         if result and result.get("image_data"):
             return JSONResponse({
@@ -493,7 +420,10 @@ async def generate_design(request: dict = Body(...)):
                 }
             })
         else:
-            raise HTTPException(status_code=500, detail="Design generation failed or timed out")
+            raise HTTPException(
+                status_code=500,
+                detail="Design generation failed or timed out. The server is taking longer than expected to respond."
+            )
             
     except Exception as e:
         logger.error(f"Error generating design: {str(e)}")
@@ -743,6 +673,80 @@ async def save_to_history(request: dict = Body(...)):
     except Exception as e:
         logger.error(f"Error saving to history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.websocket("/ws")
+async def websocket_worker(websocket: WebSocket):
+    """WebSocket endpoint for worker connections"""
+    await websocket.accept()
+    worker_id = None
+    
+    try:
+        while True:
+            data = await websocket.receive_json()
+            logger.info(f"Received WebSocket message: {data}")
+            
+            message_type = data.get("type")
+            
+            if message_type == "connect":
+                worker_id = data.get("worker_id")
+                connected_workers[worker_id] = websocket
+                await websocket.send_json({
+                    "type": "connected",
+                    "status": "ok"
+                })
+                logger.info(f"Worker {worker_id} connected")
+            
+            elif message_type == "worker_status":
+                if worker_id:
+                    next_task = await task_queue.get_next_task()
+                    if next_task:
+                        await websocket.send_json({
+                            "type": "task",
+                            "data": {
+                                "id": next_task.id,
+                                **next_task.request
+                            }
+                        })
+            
+            elif message_type == "result":
+                task_id = data.get("task_id")
+                if task_id:
+                    # Handle image data
+                    image_data = data.get("image_data")
+                    image_name = data.get("image_name")
+                    
+                    if image_data and image_name:
+                        image_path = OUTPUTS_DIR / image_name
+                        image_bytes = base64.b64decode(image_data)
+                        
+                        with open(image_path, "wb") as f:
+                            f.write(image_bytes)
+                        logger.info(f"Saved image to: {image_path}")
+                        
+                        # Update task status with correct image URL
+                        result = {
+                            "image_url": f"/images/{image_name}",
+                            "metadata": data.get("metadata", {})
+                        }
+                    else:
+                        result = {"error": data.get("error", "Unknown error")}
+                    
+                    await task_queue.update_task_status(
+                        task_id,
+                        TaskStatus.COMPLETED if data.get("status") == "completed" else TaskStatus.FAILED,
+                        result
+                    )
+    
+    except WebSocketDisconnect:
+        if worker_id:
+            logger.info(f"Worker {worker_id} disconnected")
+            if worker_id in connected_workers:
+                del connected_workers[worker_id]
+    
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        if worker_id and worker_id in connected_workers:
+            del connected_workers[worker_id]
 
 if __name__ == "__main__":
     import uvicorn

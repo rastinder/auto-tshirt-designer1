@@ -1,14 +1,14 @@
 import React from 'react';
 
 const COLORS = [
-  '#ffffff', // White
-  '#000000', // Black
-  '#0f172a', // Navy
-  '#6b7280', // Gray
-  '#ef4444', // Red
-  '#22c55e', // Green
-  '#3b82f6', // Blue
-  '#a855f7', // Purple
+  '#FFFFFF', // White
+  '#47E8D2', // Turquoise
+  '#DCA381', // Tan
+  '#702C3C', // Burgundy
+  '#E9C660', // Yellow
+  '#A11D1F', // Red
+  '#897115', // Brown
+  '#598DE6', // Blue
 ];
 
 interface ColorPickerProps {
@@ -19,17 +19,25 @@ interface ColorPickerProps {
 export const ColorPicker = ({ color, onChange }: ColorPickerProps) => {
   return (
     <div className="flex flex-wrap gap-2">
-      {COLORS.map((c) => (
-        <button
-          key={c}
-          onClick={() => onChange(c)}
-          className={`w-10 h-10 rounded-full border-2 ${
-            color === c ? 'border-indigo-600' : 'border-gray-300'
-          }`}
-          style={{ backgroundColor: c }}
-          aria-label={`Select color ${c}`}
-        />
-      ))}
+      {COLORS.map((c) => {
+        const hex = c.replace('#', '');
+        return (
+          <button
+            key={c}
+            onClick={() => onChange(c)}
+            className={`w-10 h-10 rounded-lg border-2 ${
+              color.toUpperCase() === c ? 'border-blue-500 ring-2 ring-blue-500' : 'border-gray-200'
+            } hover:border-blue-500 transition-all duration-200 relative overflow-hidden`}
+            aria-label={`Select color ${c}`}
+          >
+            <img 
+              src={`https://res.cloudinary.com/demo-robert/image/upload/w_30,h_30/e_replace_color:${hex}:60:white/l_heather_texture,o_0,w_30,h_30,c_crop/white-bar.jpg`}
+              alt={`Color ${c}`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        );
+      })}
     </div>
   );
-}
+};

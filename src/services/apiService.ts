@@ -14,7 +14,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 10000, // 10 seconds
+      timeout: 120000, // 120 seconds
     });
 
     // Add response interceptor for error handling
@@ -52,28 +52,33 @@ class ApiService {
     return false;
   }
 
-  private handleError(error: AxiosError) {
-    if (error.response) {
-      // Server responded with error status
-      const status = error.response.status;
-      const message = (error.response.data as any)?.detail || 'An error occurred';
-      
-      switch (status) {
-        case 404:
-          throw new Error('API endpoint not found. Please check the server configuration.');
-        case 502:
-          throw new Error('Server is temporarily unavailable. Please try again in a few moments.');
-        case 500:
-          throw new Error('Internal server error. Please try again later.');
-        default:
-          throw new Error(message);
-      }
-    } else if (error.request) {
-      // Request made but no response received
+  private handleError(error: AxiosError): never {
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Request timed out. The server is taking longer than expected to respond. Please try again.');
+    }
+    
+    if (!error.response) {
       throw new Error('Cannot connect to the server. Please check your internet connection and try again.');
-    } else {
-      // Error setting up the request
-      throw new Error('Failed to make the request. Please try again.');
+    }
+
+    const status = error.response.status;
+    const message = error.response.data?.detail || error.message;
+
+    switch (status) {
+      case 400:
+        throw new Error(`Invalid request: ${message}`);
+      case 401:
+        throw new Error('Unauthorized. Please log in again.');
+      case 403:
+        throw new Error('Access denied. You do not have permission to perform this action.');
+      case 404:
+        throw new Error('Resource not found.');
+      case 429:
+        throw new Error('Too many requests. Please try again later.');
+      case 500:
+        throw new Error('Server error. Please try again later.');
+      default:
+        throw new Error(`An error occurred: ${message}`);
     }
   }
 

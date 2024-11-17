@@ -1,15 +1,17 @@
 // CustomDesign.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Crop, AlertCircle, Loader2, Undo2, RotateCcw } from 'lucide-react';
+import { Crop, AlertCircle, Loader2, Undo2, RotateCcw, Pipette } from 'lucide-react';
 import { ColorPicker } from '../../components/TShirtCustomizer/ColorPicker';
 import { SizeSelector } from '../../components/TShirtCustomizer/SizeSelector';
 import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
-import Draggable from 'react-draggable';
 import 'react-image-crop/dist/ReactCrop.css';
 import { DesignService } from '../../services/designService';
 import { DesignTransform } from './types';
+import { DraggableDesign } from '../../components/DraggableDesign/DraggableDesign';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 interface DesignTransform {
   hasBackground: boolean;
@@ -22,37 +24,40 @@ interface DesignTransform {
 }
 
 const CustomDesign: React.FC = () => {
-  const [color, setColor] = useState('#ffffff');
+  const [tShirtColor, setTShirtColor] = useState('#ffffff');
+  const [designColor, setDesignColor] = useState<string>('#000000');
   const [size, setSize] = useState('M');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [designTexture, setDesignTexture] = useState<string | null>(null);
-  const [designTransform, setDesignTransform] = useState<DesignTransform>(DesignService.getInitialDesignTransform());
+  const [designTransform, setDesignTransform] = useState<DesignTransform>({
+    hasBackground: true,
+    texture: null,
+    rotation: 0,
+    scale: 1,
+    position: { x: 0, y: 0 }
+  });
   const [previousDesigns, setPreviousDesigns] = useState<string[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [crop, setCrop] = useState<CropType>();
   const [completedCrop, setCompletedCrop] = useState<CropType>();
-  const [isPickingColor, setIsPickingColor] = useState(false);
-  const [transparency, setTransparency] = useState(0);
+  const [isPickingDesignColor, setIsPickingDesignColor] = useState(false);
   const [designHistory, setDesignHistory] = useState<string[]>([]);
 
   const tshirtViews = {
-    hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
-    laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
-    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/co_rgb:FFFFFF/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg"
+    hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_replace_color:FFFFFF:60:white/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
+    laying: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_replace_color:FFFFFF:60:white/l_laying-shirt-texture,o_0,fl_relative,w_1.0/laying-shirt_xqstgr.jpg",
+    model: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_replace_color:FFFFFF:60:white/u_model2,fl_relative,w_1.0/l_heather_texture,o_0,fl_relative,w_1.0/shirt_only.jpg"
   };
 
   const getColorAdjustedImage = (imageUrl: string, color: string) => {
-    // Convert hex to RGB
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
+    // Convert hex to uppercase without #
+    const hex = color.toUpperCase().replace('#', '');
     
     // Replace the color in the URL
-    return imageUrl.replace(/co_rgb:FFFFFF/, `co_rgb:${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`);
+    return imageUrl.replace(/e_replace_color:FFFFFF:60:white/, `e_replace_color:${hex}:60:white`);
   };
 
   useEffect(() => {
@@ -101,6 +106,56 @@ const CustomDesign: React.FC = () => {
     }));
   };
 
+  const handleLoadPreviousDesign = async (design: string) => {
+    try {
+      setIsLoadingHistory(true);
+      if (currentObjectUrl.current) {
+        URL.revokeObjectURL(currentObjectUrl.current);
+      }
+      setDesignTexture(design);
+      setDesignTransform({
+        hasBackground: true,
+        texture: null,
+        rotation: 0,
+        scale: 1,
+        position: { x: 0, y: 0 }
+      });
+      setIsPickingDesignColor(false);
+      setDesignColor('#000000');
+    } catch (error) {
+      console.error('Error loading previous design:', error);
+      setError('Failed to load previous design');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleReset = () => {
+    setDesignTransform({
+      hasBackground: true,
+      texture: null,
+      rotation: 0,
+      scale: 1,
+      position: { x: 0, y: 0 }
+    });
+  };
+
+  const currentObjectUrl = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (currentObjectUrl.current) {
+        URL.revokeObjectURL(currentObjectUrl.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentObjectUrl.current) {
+      URL.revokeObjectURL(currentObjectUrl.current);
+    }
+  }, [designTexture]);
+
   const handleCropComplete = (crop: CropType, percentCrop: CropType) => {
     if (designRef.current && crop.width && crop.height) {
       const canvas = document.createElement('canvas');
@@ -127,7 +182,12 @@ const CustomDesign: React.FC = () => {
 
         canvas.toBlob((blob) => {
           if (blob) {
+            // Revoke previous object URL if it exists
+            if (currentObjectUrl.current) {
+              URL.revokeObjectURL(currentObjectUrl.current);
+            }
             const url = URL.createObjectURL(blob);
+            currentObjectUrl.current = url;
             if (designTexture) {
               setDesignHistory(prev => [...prev, designTexture]);
             }
@@ -154,12 +214,28 @@ const CustomDesign: React.FC = () => {
     }
     const cartItem = {
       design: designTexture,
-      color: color,
+      color: tShirtColor,
       size: size,
       timestamp: new Date().toISOString()
     };
     console.log('Adding to cart:', cartItem);
     alert('Added to cart successfully!');
+  };
+
+  const handleSuccessfulGeneration = async (designUrl: string) => {
+    if (currentObjectUrl.current) {
+      URL.revokeObjectURL(currentObjectUrl.current);
+    }
+    setDesignTexture(designUrl);
+    await DesignService.saveDesignToHistory(designUrl);
+    // Only add to history if it's not already there
+    setPreviousDesigns(prev => {
+      if (!prev.includes(designUrl)) {
+        return [...prev, designUrl];
+      }
+      return prev;
+    });
+    setDesignTransform(DesignService.getInitialDesignTransform());
   };
 
   const handleGenerate = async (prompt: string) => {
@@ -174,10 +250,7 @@ const CustomDesign: React.FC = () => {
     try {
       const designUrl = await DesignService.generateDesign(prompt);
       if (designUrl) {
-        setDesignTexture(designUrl);
-        await DesignService.saveDesignToHistory(designUrl);
-        setPreviousDesigns(prev => [...prev, designUrl]);
-        setDesignTransform(DesignService.getInitialDesignTransform());
+        await handleSuccessfulGeneration(designUrl);
       } else {
         throw new Error('Failed to generate design');
       }
@@ -219,344 +292,323 @@ const CustomDesign: React.FC = () => {
     }
   };
 
-  const handleTransparencyChange = async (transparency: number) => {
-    if (!designTexture) {
-      setError('Please generate a design first');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const processedImageUrl = await DesignService.adjustTransparency(designTexture, transparency);
-      if (processedImageUrl) {
-        setDesignTexture(processedImageUrl);
-      } else {
-        throw new Error('Failed to process image');
-      }
-    } catch (error) {
-      console.error('Transparency change failed:', error);
-      setError('Failed to adjust transparency. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (designRef.current) {
-      const rect = designRef.current.getBoundingClientRect();
-      dragStartPosition.current = { x: e.clientX, y: e.clientY };
-      isDragging.current = true;
-      document.addEventListener('mousemove', handleDragMove);
-      document.addEventListener('mouseup', handleDragEnd);
-    }
-  };
-
-  const handleDragMove = (e: MouseEvent) => {
-    if (isDragging.current && designRef.current) {
-      const newX = e.clientX - designRef.current.getBoundingClientRect().left;
-      const newY = e.clientY - designRef.current.getBoundingClientRect().top;
-      setDesignTransform(prev => ({
-        ...prev,
-        position: { x: newX, y: newY }
-      }));
-    }
-  };
-
-  const handleDragEnd = () => {
-    isDragging.current = false;
-    document.removeEventListener('mousemove', handleDragMove);
-    document.removeEventListener('mouseup', handleDragEnd);
-  };
-
-  const handleLoadPreviousDesign = async (design: string) => {
-    setDesignTexture(design);
-    setDesignTransform(DesignService.getInitialDesignTransform());
-    await DesignService.saveDesignToHistory(design);
-  };
-
-  const handleReset = () => {
-    setDesignTransform(DesignService.getInitialDesignTransform());
-    setTransparency(0);
-  };
-
   const designRef = useRef<HTMLImageElement>(null);
-  const nodeRef = useRef<HTMLDivElement>(null);
-  const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
-  const isDragging = useRef(false);
+
+  const handleImageColorPick = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!designRef.current || !isPickingDesignColor) return;
+
+    const img = designRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const rect = img.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Scale coordinates to actual image dimensions
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const actualX = Math.floor(x * scaleX);
+    const actualY = Math.floor(y * scaleY);
+
+    // Get pixel color
+    const pixel = ctx.getImageData(actualX, actualY, 1, 1).data;
+    const color = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+    
+    setDesignColor(color);
+    setIsPickingDesignColor(false);
+  }, [isPickingDesignColor]);
+
+  // Helper functions for color transformations
+  const getHueRotation = (color: string) => {
+    // Convert hex to HSL
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+
+    if (max === min) {
+      h = 0; // achromatic
+    } else {
+      const d = max - min;
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h *= 60;
+    }
+
+    return `${h}deg`;
+  };
+
+  const getSaturation = (color: string) => {
+    // Convert hex to HSL
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let s = 0;
+
+    if (max === min) {
+      s = 0; // achromatic
+    } else {
+      const l = (max + min) / 2;
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    }
+
+    return s * 100;
+  };
 
   return (
-    <div className="container mx-auto px-4 py-4 max-w-7xl">
-      <Helmet>
-        <title>Custom T-Shirt Design - AI Generated</title>
-      </Helmet>
+    <DndProvider backend={HTML5Backend}>
+      <div className="container mx-auto px-4 py-4 max-w-7xl">
+        <Helmet>
+          <title>Custom T-Shirt Design - AI Generated</title>
+        </Helmet>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className="flex flex-col space-y-3">
-          {/* Upper Controls - Rotation */}
-          <div className="mb-4 flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rotation</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  value={designTransform.rotation}
-                  onChange={(e) => setDesignTransform(prev => ({
-                    ...prev,
-                    rotation: parseInt(e.target.value)
-                  }))}
-                  className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="ml-2 text-sm text-gray-600">{designTransform.rotation}°</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="flex flex-col space-y-3">
+            {/* Upper Controls */}
+            <div className="mb-4 flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
+              <div className="flex items-center gap-4">
+                {/* Any other upper controls can go here */}
               </div>
             </div>
-          </div>
 
-          {/* Main Design Area */}
-          <div className="relative bg-white rounded-lg shadow-lg p-4">
-            {/* Design Display */}
-            <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
-              {/* T-shirt layer */}
-              <div className="absolute inset-0 flex items-center justify-center z-0">
-                <img
-                  src={getColorAdjustedImage(tshirtViews['hanging'], color)}
-                  alt="T-Shirt"
-                  className="w-full h-full object-contain"
-                />
+            {/* Main Design Area */}
+            <div className="relative bg-white rounded-lg shadow-lg p-4">
+              {/* Design Display */}
+              <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
+                {/* T-shirt layer */}
+                <div className="absolute inset-0 flex items-center justify-center z-0">
+                  <img
+                    src={getColorAdjustedImage(tshirtViews['hanging'], tShirtColor)}
+                    alt="T-Shirt"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                {/* Design layer */}
+                {designTexture && (
+                  <DraggableDesign
+                    designTexture={designTexture}
+                    designTransform={designTransform}
+                    onTransformChange={setDesignTransform}
+                    isCropping={isCropping}
+                    crop={crop}
+                    onCropChange={(c) => setCrop(c)}
+                    onCropComplete={(c) => setCompletedCrop(c)}
+                    isPickingDesignColor={isPickingDesignColor}
+                    onImageColorPick={handleImageColorPick}
+                  />
+                )}
               </div>
-              {/* Design layer */}
-              {designTexture && (
-                <Draggable 
-                  nodeRef={nodeRef}
-                  onDragStart={handleDragStart}
-                  defaultPosition={{x: 0, y: 0}}
-                  bounds="parent"
-                >
-                  <div
-                    ref={nodeRef}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-                    style={{
-                      transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
-                      cursor: 'move',
-                      width: '50%',
-                      height: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <img
-                      ref={designRef}
-                      src={designTexture}
-                      alt="Design"
-                      className="max-w-full max-h-full object-contain"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  </div>
-                </Draggable>
-              )}
-            </div>
 
-            {/* Inside Box Controls */}
-            <div className="mt-4 border-t pt-4">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Main Controls */}
-                <button
-                  onClick={() => setIsCropping(!isCropping)}
-                  className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
-                    isCropping 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
-                  }`}
-                >
-                  <Crop className="w-4 h-4 mr-1.5" />
-                  {isCropping ? 'Cancel' : 'Crop'}
-                </button>
+              {/* Inside Box Controls */}
+              <div className="mt-4 border-t pt-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Only show controls when design is generated */}
+                  {designTexture && (
+                    <>
+                      {/* Main Controls */}
+                      <button
+                        onClick={() => setIsCropping(!isCropping)}
+                        className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
+                          isCropping 
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                            : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
+                        }`}
+                      >
+                        <Crop className="w-4 h-4 mr-1.5" />
+                        {isCropping ? 'Cancel' : 'Crop'}
+                      </button>
 
-                <button
-                  onClick={handleBackgroundToggle}
-                  disabled={isLoading}
-                  className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
-                    designTransform.hasBackground 
-                      ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
-                      : 'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}
-                >
-                  <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20.9991 12C20.9991 16.9706 16.9697 21 11.9991 21C7.02848 21 2.99908 16.9706 2.99908 12C2.99908 7.02944 7.02848 3 11.9991 3C16.9697 3 20.9991 7.02944 20.9991 12Z" stroke="currentColor" strokeWidth="2"/>
-                    <path d="M2.99908 12H4.99908M18.9991 12H20.9991M11.9991 4V2M11.9991 22V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  {designTransform.hasBackground ? "Remove BG" : "BG Removed"}
-                </button>
+                      <button
+                        onClick={handleBackgroundToggle}
+                        disabled={isLoading}
+                        className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
+                          designTransform.hasBackground 
+                            ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <Crop className="w-4 h-4 mr-1.5" />
+                        )}
+                        {designTransform.hasBackground ? 'Remove Background' : 'Add Background'}
+                      </button>
 
-                <button
-                  onClick={async () => {
-                    if (!designTexture || isLoading) return;
-                    const timestamp = new Date().getTime();
-                    const newUrl = designTexture.includes('?') 
-                      ? `${designTexture}&t=${timestamp}`
-                      : `${designTexture}?t=${timestamp}`;
-                    setDesignTexture(newUrl);
-                  }}
-                  className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
-                >
-                  <RotateCcw className="w-4 h-4 mr-1.5" />
-                  Reload
-                </button>
+                      <button
+                        onClick={handleRetry}
+                        disabled={isGenerating}
+                        className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                      >
+                        {isGenerating ? (
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4 mr-1.5" />
+                        )}
+                        Reload
+                      </button>
 
-                <button
-                  onClick={handleReset}
-                  className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
-                >
-                  <Undo2 className="w-4 h-4 mr-1.5" />
-                  Reset
-                </button>
+                      <button
+                        onClick={handleReset}
+                        className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                      >
+                        <Undo2 className="w-4 h-4 mr-1.5" />
+                        Reset
+                      </button>
 
-                {/* Color and Transparency Controls */}
-                <div className="flex items-center gap-3 ml-auto">
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsPickingColor(!isPickingColor)}
-                      className="w-8 h-8 rounded border border-gray-300"
-                      style={{ backgroundColor: color }}
-                    />
-                    {/* {isPickingColor && (
-                      <div className="absolute top-full right-0 mt-2 z-10">
-                        <ColorPicker
-                          color={color}
-                          onChange={setColor}
-                          onClose={() => setIsPickingColor(false)}
-                        />
+                      {/* Design Color Controls */}
+                      <div className="flex items-center gap-3 ml-auto">
+                        <div className="relative">
+                          <button
+                            onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
+                            className={`w-8 h-8 rounded border border-gray-300 ${
+                              isPickingDesignColor ? 'ring-2 ring-blue-500' : ''
+                            } hover:border-gray-400`}
+                            style={{ backgroundColor: designColor }}
+                            title={isPickingDesignColor ? 'Click on the design to pick a color' : 'Pick color from design'}
+                          />
+                        </div>
                       </div>
-                    )} */}
-                  </div>
-                  <div className="w-32">
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Lower Controls - Scale */}
+            {designTexture && (
+              <>
+                {/* Scale Control */}
+                <div className="mt-4 bg-white rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Scale</label>
                     <input
                       type="range"
-                      min="0"
-                      max="100"
-                      value={transparency}
-                      onChange={(e) => {
-                        const newTransparency = parseInt(e.target.value);
-                        setTransparency(newTransparency);
-                        handleTransparencyChange(newTransparency);
-                      }}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={designTransform.scale}
+                      onChange={(e) => setDesignTransform(prev => ({
+                        ...prev,
+                        scale: parseFloat(e.target.value)
+                      }))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
+                    <span className="text-sm text-gray-600">{designTransform.scale.toFixed(1)}x</span>
                   </div>
-                  <span className="text-sm text-gray-600 min-w-[40px] text-right">
-                    {transparency}%
-                  </span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lower Controls - Scale */}
-          <div className="mt-4 bg-white rounded-lg p-3 shadow-sm">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Scale</label>
-              <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={designTransform.scale}
-                onChange={(e) => setDesignTransform(prev => ({
-                  ...prev,
-                  scale: parseFloat(e.target.value)
-                }))}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-sm text-gray-600">{designTransform.scale.toFixed(1)}x</span>
-            </div>
-          </div>
-
-          {/* Previous Designs Gallery */}
-          {previousDesigns.length > 0 && (
-            <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden">
-              <div className="p-2 border-b border-gray-100">
-                <div className="text-xs text-gray-600 font-medium text-center">History</div>
-              </div>
-              <div className="p-2 flex flex-col gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                {previousDesigns.slice(-4).map((design, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleLoadPreviousDesign(design)}
-                    className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
-                    title={`Load previous design ${previousDesigns.length - index}`}
-                  >
-                    <img
-                      src={design}
-                      alt={`Previous design ${previousDesigns.length - index}`}
-                      className="w-full h-full object-contain p-1"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-                    <div className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-black/50 text-white py-0.5">
-                      #{previousDesigns.length - index}
+              </>
+            )}
+            {/* Previous Designs Gallery */}
+            {previousDesigns.length > 0 && (
+              <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden">
+                <div className="p-2 border-b border-gray-100">
+                  <div className="text-xs text-gray-600 font-medium text-center">History</div>
+                </div>
+                <div className="p-2 flex flex-col gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                  {/* Show unique designs only */}
+                  {[...new Set(previousDesigns)].slice(-4).map((design, index, array) => (
+                    <button
+                      key={design}
+                      onClick={() => handleLoadPreviousDesign(design)}
+                      className="relative w-[70px] h-[70px] mx-auto bg-white rounded-lg border border-gray-200 hover:border-blue-500 overflow-hidden shadow-sm transition-all hover:scale-105 focus:outline-none focus:border-blue-500 group"
+                      title={`Load previous design ${array.length - index}`}
+                    >
+                      <img
+                        src={design}
+                        alt={`Previous design ${array.length - index}`}
+                        className="w-full h-full object-contain p-1"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                      <div className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-black/50 text-white py-0.5">
+                        #{array.length - index}
+                      </div>
+                    </button>
+                  ))}
+                  {isLoadingHistory && (
+                    <div className="flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                     </div>
-                  </button>
-                ))}
-                {isLoadingHistory && (
-                  <div className="flex items-center justify-center p-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col space-y-4">
+            <div className="bg-white rounded-lg p-6 shadow-lg">
+              <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Select T-Shirt Color</h3>
+                  <div className="flex-1">
+                    <ColorPicker
+                      color={tShirtColor}
+                      onChange={setTShirtColor}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Select Size</h3>
+                  <SizeSelector size={size} onChange={setSize} />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Design Generation</h3>
+                  <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5" />
+                    <p className="text-sm">{error}</p>
                   </div>
                 )}
+
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+                  disabled={!designTexture || isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Add to Cart'
+                  )}
+                </button>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col space-y-4">
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium mb-2">Select Color</h3>
-                <ColorPicker color={color} onChange={setColor} />
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-2">Select Size</h3>
-                <SizeSelector size={size} onChange={setSize} />
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-2">Design Generation</h3>
-                <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
-              </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  <p className="text-sm">{error}</p>
-                </div>
-              )}
-
-              <button
-                onClick={handleAddToCart}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
-                disabled={!designTexture || isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Add to Cart'
-                )}
-              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </DndProvider>
   );
 }
 
