@@ -45,6 +45,7 @@ const CustomDesign: React.FC = () => {
   const [completedCrop, setCompletedCrop] = useState<CropType>();
   const [isPickingDesignColor, setIsPickingDesignColor] = useState(false);
   const [designHistory, setDesignHistory] = useState<string[]>([]);
+  const [previewColor, setPreviewColor] = useState<string>('#000000');
 
   const tshirtViews = {
     hanging: "https://res.cloudinary.com/demo-robert/image/upload/w_700/e_replace_color:FFFFFF:60:white/l_hanging-shirt-texture,o_0,fl_relative,w_1.0/l_Hanger_qa2diz,fl_relative,w_1.0/Hanging_T-Shirt_v83je9.jpg",
@@ -324,6 +325,35 @@ const CustomDesign: React.FC = () => {
     setIsPickingDesignColor(false);
   }, [isPickingDesignColor]);
 
+  const handleImageMouseMove = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!designRef.current || !isPickingDesignColor) return;
+
+    const img = designRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const rect = img.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Scale coordinates to actual image dimensions
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const actualX = Math.floor(x * scaleX);
+    const actualY = Math.floor(y * scaleY);
+
+    // Get pixel color
+    const pixel = ctx.getImageData(actualX, actualY, 1, 1).data;
+    const color = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+    
+    setPreviewColor(color);
+  }, [isPickingDesignColor]);
+
   // Helper functions for color transformations
   const getHueRotation = (color: string) => {
     // Convert hex to HSL
@@ -377,6 +407,10 @@ const CustomDesign: React.FC = () => {
     return s * 100;
   };
 
+  const handleDesignTransformChange = (newTransform: DesignTransform) => {
+    setDesignTransform(newTransform);
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -410,13 +444,14 @@ const CustomDesign: React.FC = () => {
                   <DraggableDesign
                     designTexture={designTexture}
                     designTransform={designTransform}
-                    onTransformChange={setDesignTransform}
+                    onTransformChange={handleDesignTransformChange}
                     isCropping={isCropping}
                     crop={crop}
-                    onCropChange={(c) => setCrop(c)}
-                    onCropComplete={(c) => setCompletedCrop(c)}
+                    onCropChange={setCrop}
+                    onCropComplete={handleCropComplete}
                     isPickingDesignColor={isPickingDesignColor}
-                    onImageColorPick={handleImageColorPick}
+                    setIsPickingDesignColor={setIsPickingDesignColor}
+                    onDesignColorChange={setDesignColor}
                   />
                 )}
               </div>
@@ -479,16 +514,28 @@ const CustomDesign: React.FC = () => {
                       </button>
 
                       {/* Design Color Controls */}
-                      <div className="flex items-center gap-3 ml-auto">
-                        <div className="relative">
-                          <button
-                            onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
+                          className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md ${
+                            isPickingDesignColor 
+                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                          } border border-gray-300`}
+                        >
+                          {isPickingDesignColor ? 'Cancel' : 'Pick Color'}
+                        </button>
+                        
+                        <div className="flex items-center gap-2">
+                          <div
                             className={`w-8 h-8 rounded border border-gray-300 ${
                               isPickingDesignColor ? 'ring-2 ring-blue-500' : ''
                             } hover:border-gray-400`}
                             style={{ backgroundColor: designColor }}
-                            title={isPickingDesignColor ? 'Click on the design to pick a color' : 'Pick color from design'}
                           />
+                          <div className="text-xs text-gray-500 uppercase">
+                            {designColor.toUpperCase()}
+                          </div>
                         </div>
                       </div>
                     </>

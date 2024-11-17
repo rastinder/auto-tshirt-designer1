@@ -1,0 +1,19 @@
+.color-indicator {
+  transition: transform 0.2s ease-out;
+}
+
+.color-indicator.active {
+  animation: pulse 1s ease-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

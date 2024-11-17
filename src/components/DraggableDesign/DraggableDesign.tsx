@@ -1,6 +1,8 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ReactCrop, { Crop as CropType } from 'react-image-crop';
 import { DesignTransform } from '../../pages/CustomDesign/types';
+import { ColorMagnifier } from '../ColorPicker/ColorMagnifier';
+import { ColorIndicator } from '../ColorPicker/ColorIndicator';
 
 interface DraggableDesignProps {
   designTexture: string;
@@ -11,7 +13,8 @@ interface DraggableDesignProps {
   onCropChange?: (crop: CropType) => void;
   onCropComplete?: (crop: CropType) => void;
   isPickingDesignColor: boolean;
-  onImageColorPick: (e: React.MouseEvent<HTMLImageElement>) => void;
+  setIsPickingDesignColor: (isPicking: boolean) => void;
+  onDesignColorChange: (color: string) => void;
 }
 
 export const DraggableDesign: React.FC<DraggableDesignProps> = ({
@@ -23,7 +26,8 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   onCropChange,
   onCropComplete,
   isPickingDesignColor,
-  onImageColorPick,
+  setIsPickingDesignColor,
+  onDesignColorChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -31,6 +35,10 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [designSize, setDesignSize] = useState({ width: 0, height: 0 });
+  const [previewColor, setPreviewColor] = useState<string>('#000000');
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [indicatorPosition, setIndicatorPosition] = useState({ x: 0, y: 0 });
+  const [showColorIndicator, setShowColorIndicator] = useState(false);
 
   useEffect(() => {
     if (designRef.current) {
@@ -53,13 +61,12 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
             position: {
               x: containerRect.width / 2,
               y: containerRect.height / 2
-            },
-            scale: 1
+            }
           });
         }
       };
     }
-  }, [designTexture, onTransformChange]);
+  }, [designTexture]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCropping || isPickingDesignColor) return;
@@ -74,31 +81,35 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
+    if (!isDragging || isCropping || isPickingDesignColor) return;
 
-    const containerRect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate new position
-    let newX = e.clientX - dragStart.x;
-    let newY = e.clientY - dragStart.y;
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
 
-    // Calculate boundaries
+    // Calculate the new position
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+
+    // Calculate the design's dimensions with scale
     const scaledWidth = designSize.width * designTransform.scale;
     const scaledHeight = designSize.height * designTransform.scale;
-    
-    // Set minimum and maximum bounds
-    const minX = scaledWidth / 2;
-    const maxX = containerRect.width - scaledWidth / 2;
-    const minY = scaledHeight / 2;
-    const maxY = containerRect.height - scaledHeight / 2;
 
-    // Apply boundary constraints
-    newX = Math.max(minX, Math.min(maxX, newX));
-    newY = Math.max(minY, Math.min(maxY, newY));
+    // Calculate boundaries to keep design fully inside
+    const minX = scaledWidth / 2;  // Left boundary
+    const maxX = containerRect.width - scaledWidth / 2;  // Right boundary
+    const minY = scaledHeight / 2;  // Top boundary
+    const maxY = containerRect.height - scaledHeight / 2;  // Bottom boundary
+
+    // Constrain the position to keep design fully inside
+    const constrainedX = Math.max(minX, Math.min(maxX, newX));
+    const constrainedY = Math.max(minY, Math.min(maxY, newY));
 
     onTransformChange({
       ...designTransform,
-      position: { x: newX, y: newY }
+      position: {
+        x: constrainedX,
+        y: constrainedY
+      }
     });
   };
 
@@ -109,6 +120,72 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     }
   };
 
+  const handleImageColorPick = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!designRef.current || !isPickingDesignColor) return;
+
+    const img = designRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const rect = img.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setIndicatorPosition({ x: e.clientX, y: e.clientY });
+    
+    // Scale coordinates to actual image dimensions
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const actualX = Math.floor(x * scaleX);
+    const actualY = Math.floor(y * scaleY);
+
+    // Get pixel color
+    const pixel = ctx.getImageData(actualX, actualY, 1, 1).data;
+    const color = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+    
+    setShowColorIndicator(true);
+    setTimeout(() => setShowColorIndicator(false), 1000);
+    
+    onDesignColorChange(color);
+    setIsPickingDesignColor(false);
+  }, [isPickingDesignColor, onDesignColorChange, setIsPickingDesignColor]);
+
+  const handleImageMouseMove = useCallback((e: React.MouseEvent<HTMLImageElement>) => {
+    if (!designRef.current || !isPickingDesignColor) return;
+
+    const img = designRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const rect = img.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setMousePosition({ x: e.clientX, y: e.clientY });
+
+    // Scale coordinates to actual image dimensions
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const actualX = Math.floor(x * scaleX);
+    const actualY = Math.floor(y * scaleY);
+
+    // Get pixel color
+    const pixel = ctx.getImageData(actualX, actualY, 1, 1).data;
+    const color = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+    
+    setPreviewColor(color);
+  }, [isPickingDesignColor]);
+
   return (
     <div 
       ref={containerRef} 
@@ -116,7 +193,6 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     >
       <div
         ref={nodeRef}
-        className="absolute z-10"
         style={{
           position: 'absolute',
           left: `${designTransform.position.x}px`,
@@ -134,6 +210,7 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        className="absolute z-10"
       >
         <div
           style={{
@@ -160,7 +237,8 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
                   display: 'block',
                   objectFit: 'contain'
                 }}
-                onClick={onImageColorPick}
+                onClick={handleImageColorPick}
+                onMouseMove={handleImageMouseMove}
                 draggable={false}
               />
             </ReactCrop>
@@ -169,6 +247,7 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
               ref={designRef}
               src={designTexture}
               alt="Design"
+              draggable={false}
               style={{ 
                 width: '100%',
                 height: '100%',
@@ -176,12 +255,27 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
                 display: 'block',
                 objectFit: 'contain'
               }}
-              onClick={onImageColorPick}
-              draggable={false}
+              onClick={handleImageColorPick}
+              onMouseMove={handleImageMouseMove}
             />
           )}
         </div>
       </div>
+      {isPickingDesignColor && (
+        <ColorMagnifier
+          x={mousePosition.x}
+          y={mousePosition.y}
+          color={previewColor}
+        />
+      )}
+      {showColorIndicator && (
+        <ColorIndicator
+          x={indicatorPosition.x}
+          y={indicatorPosition.y}
+          color={previewColor}
+          isActive={true}
+        />
+      )}
     </div>
   );
 };
