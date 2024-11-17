@@ -15,7 +15,7 @@ export const TransparencySlider = ({
   disabled = false 
 }: TransparencySliderProps) => {
   return (
-    <div className="flex flex-col gap-2 w-full max-w-xs">
+    <div className="w-full max-w-xs space-y-2">
       <label className="flex justify-between items-center text-sm font-medium text-gray-700">
         <span>Transparency</span>
         <div className="flex items-center gap-2">

@@ -56,13 +56,11 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
         // Center the design in container
         if (containerRef.current && designTransform.position.x === 0 && designTransform.position.y === 0) {
           const containerRect = containerRef.current.getBoundingClientRect();
-          const centerX = containerRect.width / 2;
-          const centerY = containerRect.height / 2;
           onTransformChange({
             ...designTransform,
             position: {
-              x: centerX,
-              y: centerY
+              x: containerRect.width / 2,
+              y: containerRect.height / 2
             }
           });
         }
@@ -73,18 +71,10 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCropping || isPickingDesignColor) return;
     setIsDragging(true);
-    
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    
-    const centerX = containerRect.width / 2;
-    const centerY = containerRect.height / 2;
-    
     setDragStart({
-      x: e.clientX - (designTransform.position.x - centerX),
-      y: e.clientY - (designTransform.position.y - centerY)
+      x: e.clientX - designTransform.position.x,
+      y: e.clientY - designTransform.position.y
     });
-    
     if (nodeRef.current) {
       nodeRef.current.style.cursor = 'grabbing';
     }
@@ -96,12 +86,9 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     const containerRect = containerRef.current?.getBoundingClientRect();
     if (!containerRect) return;
 
-    const centerX = containerRect.width / 2;
-    const centerY = containerRect.height / 2;
-
-    // Calculate the new position relative to center
-    const newX = e.clientX - dragStart.x + centerX;
-    const newY = e.clientY - dragStart.y + centerY;
+    // Calculate the new position
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
 
     // Calculate the design's dimensions with scale
     const scaledWidth = designSize.width * designTransform.scale;
@@ -207,23 +194,28 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     >
       <div
         ref={nodeRef}
-        className="design-node"
         style={{
           position: 'absolute',
           left: `${designTransform.position.x}px`,
           top: `${designTransform.position.y}px`,
-          transform: `translate(-50%, -50%) rotate(${designTransform.rotation}deg)`,
-          cursor: isDragging ? 'grabbing' : 'grab',
-          touchAction: 'none'
+          transform: `translate(-50%, -50%)`,
+          cursor: isDragging ? 'grabbing' : (isCropping || isPickingDesignColor ? 'default' : 'grab'),
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none',
+          touchAction: 'none',
+          transformOrigin: 'center'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        className="absolute z-10"
       >
         <div
           style={{
-            transform: `scale(${designTransform.scale})`,
+            transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
             transformOrigin: 'center',
             width: `${designSize.width}px`,
             height: `${designSize.height}px`

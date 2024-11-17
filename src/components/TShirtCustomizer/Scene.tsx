@@ -58,8 +58,8 @@ export default function Scene({
   };
 
   return (
-    <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-      <div className="relative w-full h-full">
+    <div className="w-[500px] h-[500px] bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+      <div className="relative w-[400px] h-[400px] flex items-center justify-center">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -81,7 +81,7 @@ export default function Scene({
           <img 
             src={designTexture}
             alt="T-shirt design"
-            className={`w-full h-full object-contain transition-opacity duration-300 ${
+            className={`w-[400px] h-[400px] object-contain transition-opacity duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={handleImageLoad}

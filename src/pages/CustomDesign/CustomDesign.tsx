@@ -1,7 +1,7 @@
 // CustomDesign.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Crop, AlertCircle, Loader2, Undo2, RotateCcw, Pipette } from 'lucide-react';
+import { Crop, AlertCircle, Loader2, Undo2, RotateCcw, Pipette, Plus, Minus } from 'lucide-react';
 import { ColorPicker } from '../../components/TShirtCustomizer/ColorPicker';
 import { SizeSelector } from '../../components/TShirtCustomizer/SizeSelector';
 import { PromptInput } from '../../components/TShirtCustomizer/PromptInput';
@@ -464,30 +464,30 @@ const CustomDesign: React.FC = () => {
     setDesignTransform(newTransform);
   };
 
+  const handleRotationChange = (degrees: number) => {
+    setDesignTransform(prev => ({
+      ...prev,
+      rotation: degrees
+    }));
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto px-4 py-4 max-w-7xl">
+      <div className="container mx-auto px-4 py-2 max-w-7xl">
         <Helmet>
           <title>Custom T-Shirt Design - AI Generated</title>
         </Helmet>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <div className="flex flex-col space-y-3">
-            {/* Upper Controls */}
-            <div className="mb-4 flex justify-between items-center bg-white rounded-lg p-3 shadow-sm">
-              <div className="flex items-center gap-4">
-                {/* Any other upper controls can go here */}
-              </div>
-            </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="bg-white rounded-lg shadow-lg p-6">
             {/* Main Design Area */}
-            <div className="relative bg-white rounded-lg shadow-lg p-4 design-container" ref={containerRef}>
+            <div className="relative" ref={containerRef}>
               {/* Design Display */}
-              <div className="relative w-full aspect-square bg-gray-100 rounded-lg">
+              <div className="relative w-full h-[600px] bg-gray-100 rounded-lg">
                 {/* T-shirt layer */}
-                <div className="absolute inset-0 flex items-center justify-center z-0">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <img
                     src={getColorAdjustedImage(tshirtViews['hanging'], tShirtColor)}
                     alt="T-Shirt"
@@ -512,131 +512,193 @@ const CustomDesign: React.FC = () => {
               </div>
 
               {/* Inside Box Controls */}
-              <div className="mt-4 border-t pt-4">
+              <div className="mt-4">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Only show controls when design is generated */}
                   {designTexture && (
                     <>
-                      {/* Main Controls */}
-                      <button
-                        onClick={() => setIsCropping(!isCropping)}
-                        className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
-                          isCropping 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                            : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
-                        }`}
-                      >
-                        <Crop className="w-4 h-4 mr-1.5" />
-                        {isCropping ? 'Cancel' : 'Crop'}
-                      </button>
-
-                      <button
-                        onClick={handleBackgroundToggle}
-                        disabled={isLoading}
-                        className={`flex items-center px-3 py-1.5 text-sm rounded-md transition-all ${
-                          designTransform.hasBackground 
-                            ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
-                            : 'bg-blue-50 text-blue-700 border border-blue-200'
-                        }`}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                        ) : (
-                          <Crop className="w-4 h-4 mr-1.5" />
-                        )}
-                        {designTransform.hasBackground ? 'Remove Background' : 'Add Background'}
-                      </button>
-
-                      <button
-                        onClick={handleRetry}
-                        disabled={isGenerating}
-                        className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
-                      >
-                        {isGenerating ? (
-                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                        ) : (
-                          <RotateCcw className="w-4 h-4 mr-1.5" />
-                        )}
-                        Remove Image
-                      </button>
-
-                      <button
-                        onClick={handleReset}
-                        className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
-                      >
-                        <Undo2 className="w-4 h-4 mr-1.5" />
-                        Reset
-                      </button>
-
-                      {/* Design Color Controls */}
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
-                          className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md ${
-                            isPickingDesignColor 
-                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
-                          } border border-gray-300`}
-                        >
-                          {isPickingDesignColor ? 'Cancel' : 'Pick Color'}
-                        </button>
-                        
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-8 h-8 rounded border border-gray-300 ${
-                              isPickingDesignColor ? 'ring-2 ring-blue-500' : ''
-                            } hover:border-gray-400`}
-                            style={{ backgroundColor: designColor }}
-                          />
-                          <div className="text-xs text-gray-500 uppercase">
-                            {designColor.toUpperCase()}
+                      {/* Transform Controls Box */}
+                      <div className="bg-white rounded-lg shadow-lg p-6">
+                        <div className="flex flex-col gap-3">
+                          {/* Color Controls */}
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setIsPickingDesignColor(!isPickingDesignColor)}
+                              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md ${
+                                isPickingDesignColor 
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                              } border border-gray-300`}
+                            >
+                              {isPickingDesignColor ? 'Cancel' : 'Pick Color'}
+                            </button>
+                            
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-8 h-8 rounded border border-gray-300 ${
+                                  isPickingDesignColor ? 'ring-2 ring-blue-500' : ''
+                                } hover:border-gray-400`}
+                                style={{ backgroundColor: designColor }}
+                              />
+                              <div className="text-xs text-gray-500 uppercase">
+                                {designColor.toUpperCase()}
+                              </div>
+                              {/* Color Intensity Slider */}
+                              <div className="flex items-center gap-2 ml-4 flex-1">
+                                <span className="text-sm text-gray-500 whitespace-nowrap">Effect:</span>
+                                <button
+                                  onClick={() => adjustColorIntensity(Math.max(0, colorIntensity - 1))}
+                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={colorIntensity}
+                                  onChange={(e) => adjustColorIntensity(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <button
+                                  onClick={() => adjustColorIntensity(Math.min(100, colorIntensity + 1))}
+                                  className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                                <span className="text-sm text-gray-500 min-w-[40px] text-right">{colorIntensity}%</span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Color Intensity Slider */}
-                        <div className="flex items-center gap-2 ml-4">
-                          <span className="text-sm text-gray-500">Effect:</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={colorIntensity}
-                            onChange={(e) => adjustColorIntensity(Number(e.target.value))}
-                            className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                          <span className="text-sm text-gray-500">{colorIntensity}%</span>
+                          {/* Crop and Reset Buttons */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setIsCropping(!isCropping)}
+                              className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md ${
+                                isCropping 
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                  : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
+                              }`}
+                            >
+                              {isCropping ? 'Cancel' : 'Crop'}
+                            </button>
+
+                            <button
+                              onClick={handleBackgroundToggle}
+                              disabled={isLoading}
+                              className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
+                                designTransform.hasBackground 
+                                  ? 'text-gray-700 hover:bg-gray-50 border border-gray-200' 
+                                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              }`}
+                            >
+                              {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Crop className="w-4 h-4 mr-1.5" />
+                              )}
+                              {designTransform.hasBackground ? 'Remove Background' : 'Add Background'}
+                            </button>
+
+                            <button
+                              onClick={handleRetry}
+                              disabled={isGenerating}
+                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                            >
+                              {isGenerating ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4 mr-1.5" />
+                              )}
+                              Remove Image
+                            </button>
+
+                            <button
+                              onClick={handleReset}
+                              className="flex items-center px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md border border-gray-200"
+                            >
+                              <Undo2 className="w-4 h-4 mr-1.5" />
+                              Reset
+                            </button>
+                          </div>
+
+                          {/* Rotation Slider */}
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-sm text-gray-500 whitespace-nowrap">Rotation:</span>
+                            <button
+                              onClick={() => handleRotationChange(Math.max(0, designTransform.rotation - 1))}
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <input
+                              type="range"
+                              min="0"
+                              max="360"
+                              value={designTransform.rotation}
+                              onChange={(e) => handleRotationChange(Number(e.target.value))}
+                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <button
+                              onClick={() => handleRotationChange(Math.min(360, designTransform.rotation + 1))}
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            <span className="text-sm text-gray-500 min-w-[40px] text-right">{designTransform.rotation}°</span>
+                          </div>
+
+                          {/* Scale Slider */}
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-sm text-gray-500 whitespace-nowrap">Scale:</span>
+                            <button
+                              onClick={() => setDesignTransform(prev => ({
+                                ...prev,
+                                scale: Math.max(0.1, prev.scale - 0.1)
+                              }))}
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <input
+                              type="range"
+                              min="0.1"
+                              max="2"
+                              step="0.1"
+                              value={designTransform.scale}
+                              onChange={(e) => setDesignTransform(prev => ({
+                                ...prev,
+                                scale: parseFloat(e.target.value)
+                              }))}
+                              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <button
+                              onClick={() => setDesignTransform(prev => ({
+                                ...prev,
+                                scale: Math.min(2, prev.scale + 0.1)
+                              }))}
+                              className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            <span className="text-sm text-gray-500 min-w-[40px] text-right">{designTransform.scale.toFixed(1)}x</span>
+                          </div>
                         </div>
                       </div>
                     </>
                   )}
                 </div>
               </div>
+
+              {/* Lower Controls */}
+              {designTexture && (
+                <div className="mt-4">
+                  {/* Add any additional controls here if needed */}
+                </div>
+              )}
             </div>
 
-            {/* Lower Controls - Scale */}
-            {designTexture && (
-              <>
-                {/* Scale Control */}
-                <div className="mt-4 bg-white rounded-lg p-3 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">Scale</label>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="2"
-                      step="0.1"
-                      value={designTransform.scale}
-                      onChange={(e) => setDesignTransform(prev => ({
-                        ...prev,
-                        scale: parseFloat(e.target.value)
-                      }))}
-                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-600">{designTransform.scale.toFixed(1)}x</span>
-                  </div>
-                </div>
-              </>
-            )}
             {/* Previous Designs Gallery */}
             {previousDesigns.length > 0 && (
               <div className="absolute right-4 top-4 w-[90px] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg z-50 overflow-hidden">
@@ -673,53 +735,51 @@ const CustomDesign: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-col space-y-4">
-            <div className="bg-white rounded-lg p-6 shadow-lg">
-              <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h1 className="text-3xl font-bold mb-6">Customize Your T-Shirt</h1>
 
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Select T-Shirt Color</h3>
-                  <div className="flex-1">
-                    <ColorPicker
-                      color={tShirtColor}
-                      onChange={setTShirtColor}
-                    />
-                  </div>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Select T-Shirt Color</h3>
+                <div className="flex-1">
+                  <ColorPicker
+                    color={tShirtColor}
+                    onChange={setTShirtColor}
+                  />
                 </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Select Size</h3>
-                  <SizeSelector size={size} onChange={setSize} />
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Design Generation</h3>
-                  <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
-                </div>
-
-                {error && (
-                  <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
-                    <p className="text-sm">{error}</p>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleAddToCart}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
-                  disabled={!designTexture || isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Add to Cart'
-                  )}
-                </button>
               </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Select Size</h3>
+                <SizeSelector size={size} onChange={setSize} />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Design Generation</h3>
+                <PromptInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleAddToCart}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center gap-2"
+                disabled={!designTexture || isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Add to Cart'
+                )}
+              </button>
             </div>
           </div>
         </div>

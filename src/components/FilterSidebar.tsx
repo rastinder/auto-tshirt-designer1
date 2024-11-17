@@ -18,8 +18,8 @@ function FilterSidebar({ onPriceChange, onSizeChange, onColorChange }: FilterSid
       {/* Price Range */}
       <div className="mb-6">
         <h3 className="font-medium mb-3">Price Range</h3>
-        <div className="space-y-2">
-          <label className="flex items-center">
+        <div>
+          <label className="flex items-center mb-2">
             <input
               type="radio"
               name="price"
@@ -28,7 +28,7 @@ function FilterSidebar({ onPriceChange, onSizeChange, onColorChange }: FilterSid
             />
             <span className="ml-2">Under $25</span>
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center mb-2">
             <input
               type="radio"
               name="price"

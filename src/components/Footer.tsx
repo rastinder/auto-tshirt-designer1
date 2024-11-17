@@ -21,10 +21,10 @@ function Footer() {
           {/* Quick Links */}
           <div>
             <h3 className="font-semibold text-white mb-4">Quick Links</h3>
-            <ul className="space-y-2">
-              <li><Link to="/shop" className="hover:text-white">Shop</Link></li>
-              <li><Link to="/blog" className="hover:text-white">Blog</Link></li>
-              <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+            <ul>
+              <li className="mb-2"><Link to="/shop" className="hover:text-white">Shop</Link></li>
+              <li className="mb-2"><Link to="/blog" className="hover:text-white">Blog</Link></li>
+              <li className="mb-2"><Link to="/about" className="hover:text-white">About Us</Link></li>
               <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
             </ul>
           </div>
@@ -32,10 +32,10 @@ function Footer() {
           {/* Customer Service */}
           <div>
             <h3 className="font-semibold text-white mb-4">Customer Service</h3>
-            <ul className="space-y-2">
-              <li><Link to="/shipping" className="hover:text-white">Shipping Info</Link></li>
-              <li><Link to="/returns" className="hover:text-white">Returns</Link></li>
-              <li><Link to="/faq" className="hover:text-white">FAQ</Link></li>
+            <ul>
+              <li className="mb-2"><Link to="/shipping" className="hover:text-white">Shipping Info</Link></li>
+              <li className="mb-2"><Link to="/returns" className="hover:text-white">Returns</Link></li>
+              <li className="mb-2"><Link to="/faq" className="hover:text-white">FAQ</Link></li>
               <li><Link to="/size-guide" className="hover:text-white">Size Guide</Link></li>
             </ul>
           </div>
@@ -43,10 +43,10 @@ function Footer() {
           {/* Legal */}
           <div>
             <h3 className="font-semibold text-white mb-4">Legal</h3>
-            <ul className="space-y-2">
-              <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
-              <li><Link to="/gdpr" className="hover:text-white">GDPR</Link></li>
+            <ul>
+              <li className="mb-2"><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+              <li className="mb-2"><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
+              <li className="mb-2"><Link to="/gdpr" className="hover:text-white">GDPR</Link></li>
               <li><Link to="/cookies" className="hover:text-white">Cookie Policy</Link></li>
             </ul>
           </div>
@@ -61,7 +61,7 @@ function Footer() {
               <a href="#" className="hover:text-white"><Youtube className="h-5 w-5" /></a>
             </div>
             <div className="text-sm">
-              © {new Date().getFullYear()} AI Tees. All rights reserved.
+              {new Date().getFullYear()} AI Tees. All rights reserved.
             </div>
           </div>
         </div>
