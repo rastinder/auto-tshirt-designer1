@@ -47,6 +47,9 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
     y: 0
   });
 
+  // Store last crop dimensions for each image
+  const lastCropRef = useRef<{ [key: string]: CropType }>({});
+
   useEffect(() => {
     if (designRef.current) {
       const img = designRef.current;
@@ -81,17 +84,21 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
       const imgRect = img.getBoundingClientRect();
       
       if (!crop && onCropChange) {
-        const initialCrop = {
+        // Check if we have a saved crop for this image
+        const lastCrop = lastCropRef.current[designTexture];
+        
+        const initialCrop = lastCrop || {
           unit: 'px',
           x: 0,
           y: 0,
           width: imgRect.width,
           height: imgRect.height
         };
+        
         onCropChange(initialCrop);
       }
     }
-  }, [isCropping, onCropChange, crop, designSize.width, designSize.height]);
+  }, [isCropping, onCropChange, crop, designSize.width, designSize.height, designTexture]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isCropping || isPickingDesignColor) return;
@@ -215,6 +222,9 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   const handleCropComplete = useCallback((crop: CropType, percentCrop: CropType) => {
     if (!crop.width || !crop.height) return;
     
+    // Save the crop dimensions for this image
+    lastCropRef.current[designTexture] = crop;
+    
     setCropStyle({
       clip: 'unset',
       width: crop.width,
@@ -222,7 +232,7 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
       x: crop.x,
       y: crop.y
     });
-  }, []);
+  }, [designTexture]);
 
   const handleCropChange = useCallback((newCrop: CropType) => {
     if (onCropChange) {
@@ -247,11 +257,27 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
         clip: clipPath
       }));
       
+      // Save the final crop dimensions
+      lastCropRef.current[designTexture] = {
+        unit: 'px',
+        x: cropStyle.x,
+        y: cropStyle.y,
+        width: cropStyle.width,
+        height: cropStyle.height
+      };
+      
       if (onCropComplete) {
         onCropComplete(designTexture);
       }
     }
   }, [crop, cropStyle, onCropComplete, designTexture]);
+
+  // Cleanup last crop data when component unmounts
+  useEffect(() => {
+    return () => {
+      lastCropRef.current = {};
+    };
+  }, []);
 
   return (
     <div 
