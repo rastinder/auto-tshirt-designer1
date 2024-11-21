@@ -93,10 +93,20 @@ export PYTHONPATH="${PROJECT_ROOT}:${PROJECT_ROOT}/server"
 echo "Upgrading pip..."
 python -m pip install --upgrade pip || handle_error "Failed to upgrade pip"
 
-# Install server requirements
+# Install server requirements with better error handling
 echo "Installing server requirements..."
-pip install -r requirements.txt || handle_error "Failed to install main requirements"
-pip install -r server/requirements.txt || handle_error "Failed to install server requirements"
+# First install basic requirements
+pip install wheel setuptools || handle_error "Failed to install basic requirements"
+
+# Install requirements with retries and verbose output
+echo "Installing main requirements..."
+pip install -v -r requirements.txt || handle_error "Failed to install main requirements"
+
+# Additional server requirements if they exist
+if [ -f "server/requirements.txt" ]; then
+    echo "Installing additional server requirements..."
+    pip install -v -r server/requirements.txt || handle_error "Failed to install server requirements"
+fi
 
 # Install Node.js dependencies and build frontend
 echo "Installing Node.js dependencies..."
