@@ -11,23 +11,23 @@ handle_error() {
 
 # Update package lists
 echo "Updating system packages..."
- apt-get update || handle_error "Failed to update package lists"
+sudo apt-get update || handle_error "Failed to update package lists"
 
 # Install required packages for Python installation
 echo "Installing Python prerequisites..."
- apt-get install -y software-properties-common || handle_error "Failed to install software-properties-common"
+sudo apt-get install -y software-properties-common || handle_error "Failed to install software-properties-common"
 
 # Add deadsnakes PPA for Python 3.11
 echo "Adding Python 3.11 repository..."
- add-apt-repository -y ppa:deadsnakes/ppa || handle_error "Failed to add Python repository"
+sudo add-apt-repository -y ppa:deadsnakes/ppa || handle_error "Failed to add Python repository"
 
 # Install Python 3.11 and development packages
 echo "Installing Python 3.11 and dependencies..."
- apt-get install -y python3.11 python3.11-venv python3.11-dev || handle_error "Failed to install Python"
+sudo apt-get install -y python3.11 python3.11-venv python3.11-dev || handle_error "Failed to install Python"
 
 # Install required system libraries for background removal
 echo "Installing system dependencies for background removal..."
- apt-get install -y libgl1-mesa-glx libglib2.0-0 || handle_error "Failed to install system libraries"
+sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 || handle_error "Failed to install system libraries"
 
 # Install Node.js 18.x if not installed or upgrade if older version
 echo "Checking Node.js installation..."
@@ -89,7 +89,7 @@ pm2 serve dist 3000 --name "ai-tshirt-frontend" --spa || handle_error "Failed to
 pm2 save || handle_error "Failed to save PM2 process list"
 
 # Setup PM2 to start on boot
- env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
 
 echo "Deployment complete!"
 echo "Frontend is running at: http://localhost:3000"
