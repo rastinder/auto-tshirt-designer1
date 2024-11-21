@@ -32,11 +32,30 @@ handle_error() {
 
 # Update package lists with retry mechanism
 echo "Updating system packages..."
+
+# Check architecture and adjust repository if needed
+ARCH=$(dpkg --print-architecture)
+echo "Detected architecture: $ARCH"
+
+# For ARM64, ensure we're using ports.ubuntu.com
+if [ "$ARCH" = "arm64" ]; then
+    echo "ARM64 architecture detected, ensuring correct repository configuration..."
+    # Backup original sources.list
+    sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup
+    # Create new sources.list for ARM64
+    cat << EOF | sudo tee /etc/apt/sources.list
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-backports main restricted universe multiverse
+EOF
+fi
+
 max_retries=3
 retry_count=0
 while [ $retry_count -lt $max_retries ]; do
     echo "Attempt $((retry_count + 1)) of $max_retries to update package lists..."
-    if sudo apt-get update -y 2>&1 | tee /tmp/apt-update.log; then
+    if sudo apt-get clean && sudo apt-get update -y 2>&1 | tee /tmp/apt-update.log; then
         break
     else
         retry_count=$((retry_count + 1))
@@ -44,13 +63,13 @@ while [ $retry_count -lt $max_retries ]; do
         cat /tmp/apt-update.log
         if [ $retry_count -eq $max_retries ]; then
             echo "All retries failed. Running additional diagnostics..."
-            echo "1. Current sources list:"
-            cat /etc/apt/sources.list
-            echo "2. Additional sources:"
-            ls -l /etc/apt/sources.list.d/
-            echo "3. Testing specific repository access:"
-            curl -v http://archive.ubuntu.com/ubuntu/ 2>&1
-            echo "4. Current apt configuration:"
+            echo "1. Testing repository access:"
+            if [ "$ARCH" = "arm64" ]; then
+                curl -v http://ports.ubuntu.com/ubuntu-ports/ 2>&1
+            else
+                curl -v http://archive.ubuntu.com/ubuntu/ 2>&1
+            fi
+            echo "2. Current apt configuration:"
             apt-config dump
             handle_error "Failed to update package lists after $max_retries attempts" "apt_update"
         fi
