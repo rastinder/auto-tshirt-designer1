@@ -9,7 +9,7 @@ if "%~1"=="" (
 )
 
 echo.
-echo === Git Auto Commit and Push Script ===
+echo === Git Auto Commit and Push Script (Force Push Enabled) ===
 echo.
 
 :: Check if we're in a git repository
@@ -17,6 +17,17 @@ git rev-parse --git-dir >nul 2>&1
 if %errorlevel% neq 0 (
     echo Error: Not a git repository!
     exit /b 1
+)
+
+:: Detect detached HEAD and switch to main
+for /f "delims=" %%B in ('git rev-parse --abbrev-ref HEAD') do set branch=%%B
+if "!branch!"=="HEAD" (
+    echo Warning: Detached HEAD detected. Switching to 'main'...
+    git switch main
+    if %errorlevel% neq 0 (
+        echo Error: Failed to switch to branch 'main'!
+        exit /b 1
+    )
 )
 
 :: Add all changes
@@ -36,18 +47,17 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Push changes
+:: Push changes (force push)
 echo.
-echo Pushing changes to remote...
-git push
+echo Force pushing changes to remote...
+git push --force
 if %errorlevel% neq 0 (
-    echo Error: Failed to push changes!
-    echo Tip: Make sure you have the correct remote repository configured
+    echo Error: Failed to force push changes!
     exit /b 1
 )
 
 echo.
-echo === Success! All changes have been committed and pushed ===
+echo === Success! All changes have been committed and force-pushed ===
 echo.
 
 exit /b 0
