@@ -245,136 +245,69 @@ export const DraggableDesign: React.FC<DraggableDesignProps> = ({
   }, [onCropComplete]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="absolute inset-0 overflow-hidden"
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-hidden"
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onMouseMove={handleMouseMove}
     >
       <div
         ref={nodeRef}
+        className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab ${
+          isDragging ? 'cursor-grabbing' : ''
+        }`}
         style={{
-          position: 'absolute',
-          left: `${designTransform.position.x}px`,
-          top: `${designTransform.position.y}px`,
-          transform: `translate(-50%, -50%)`,
-          cursor: isDragging ? 'grabbing' : (isCropping || isPickingDesignColor ? 'default' : 'grab'),
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          MozUserSelect: 'none',
-          msUserSelect: 'none',
-          touchAction: 'none',
-          transformOrigin: 'center'
+          left: designTransform.position.x,
+          top: designTransform.position.y,
+          transform: `translate(-50%, -50%) scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
         }}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className={`absolute z-10 ${isCropping ? 'crop-active' : ''}`}
       >
-        <div
-          style={{
-            transform: `scale(${designTransform.scale}) rotate(${designTransform.rotation}deg)`,
-            transformOrigin: 'center',
-            width: `${designSize.width}px`,
-            height: `${designSize.height}px`
-          }}
-        >
-          {isCropping ? (
+        {isCropping ? (
+          <div className="relative">
             <ReactCrop
               crop={crop}
               onChange={onCropChange}
-              onComplete={handleCropComplete}
-              className="animate-fade-in"
+              className="design-crop-container"
             >
               <img
                 ref={designRef}
                 src={designTexture}
                 alt="Design"
-                style={{ 
-                  width: '100%',
-                  height: '100%',
-                  cursor: isPickingDesignColor ? 'crosshair' : undefined,
-                  display: 'block',
-                  objectFit: 'contain'
+                style={{
+                  width: `${designSize.width}px`,
+                  height: `${designSize.height}px`,
                 }}
                 onClick={handleImageColorPick}
                 onMouseMove={handleImageMouseMove}
                 draggable={false}
               />
             </ReactCrop>
-          ) : (
-            <img
-              ref={designRef}
-              src={designTexture}
-              alt="Design"
-              style={{ 
-                width: '100%',
-                height: '100%',
-                cursor: isPickingDesignColor ? 'crosshair' : undefined,
-                display: 'block',
-                objectFit: 'contain'
-              }}
-              onClick={handleImageColorPick}
-              onMouseMove={handleImageMouseMove}
-              draggable={false}
-            />
-          )}
-        </div>
+            <button
+              onClick={() => {}}
+              className="absolute bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Apply Crop
+            </button>
+          </div>
+        ) : (
+          <img
+            ref={designRef}
+            src={designTexture}
+            alt="Design"
+            style={{
+              width: `${designSize.width}px`,
+              height: `${designSize.height}px`,
+            }}
+            onClick={handleImageColorPick}
+            onMouseMove={handleImageMouseMove}
+            draggable={false}
+          />
+        )}
       </div>
       {isPickingDesignColor && (
-        <ColorMagnifier
-          x={mousePosition.x}
-          y={mousePosition.y}
-          color={previewColor}
-        />
-      )}
-      {showColorIndicator && (
-        <ColorIndicator
-          x={indicatorPosition.x}
-          y={indicatorPosition.y}
-          color={previewColor}
-          isActive={true}
-        />
-      )}
-    </div>
-  );
-};
-                  onClick={handleImageColorPick}
-                  onMouseMove={handleImageMouseMove}
-                  draggable={false}
-                />
-              </ReactCrop>
-              <button
-                onClick={handleCropDone}
-                className="absolute bottom-4 right-4 bg-indigo-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Apply Crop
-              </button>
-            </div>
-          ) : (
-            <img
-              ref={designRef}
-              src={designTexture}
-              alt="Design"
-              style={{ 
-                width: '100%',
-                height: '100%',
-                cursor: isPickingDesignColor ? 'crosshair' : undefined,
-                display: 'block',
-                objectFit: 'contain'
-              }}
-              onClick={handleImageColorPick}
-              onMouseMove={handleImageMouseMove}
-              draggable={false}
-            />
-          )}
-        </div>
-      </div>
-      {isPickingDesignColor && (
-        <ColorMagnifier
-          x={mousePosition.x}
-          y={mousePosition.y}
-          color={previewColor}
-        />
+        <ColorMagnifier x={mousePosition.x} y={mousePosition.y} color={previewColor} />
       )}
       {showColorIndicator && (
         <ColorIndicator
