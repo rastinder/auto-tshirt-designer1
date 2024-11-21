@@ -37,20 +37,6 @@ echo "Updating system packages..."
 ARCH=$(dpkg --print-architecture)
 echo "Detected architecture: $ARCH"
 
-# For ARM64, ensure we're using ports.ubuntu.com
-if [ "$ARCH" = "arm64" ]; then
-    echo "ARM64 architecture detected, ensuring correct repository configuration..."
-    # Backup original sources.list
-    sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup
-    # Create new sources.list for ARM64
-    cat << EOF | sudo tee /etc/apt/sources.list
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-backports main restricted universe multiverse
-EOF
-fi
-
 max_retries=3
 retry_count=0
 while [ $retry_count -lt $max_retries ]; do
@@ -59,18 +45,7 @@ while [ $retry_count -lt $max_retries ]; do
         break
     else
         retry_count=$((retry_count + 1))
-        echo "Update failed. Checking error log:"
-        cat /tmp/apt-update.log
         if [ $retry_count -eq $max_retries ]; then
-            echo "All retries failed. Running additional diagnostics..."
-            echo "1. Testing repository access:"
-            if [ "$ARCH" = "arm64" ]; then
-                curl -v http://ports.ubuntu.com/ubuntu-ports/ 2>&1
-            else
-                curl -v http://archive.ubuntu.com/ubuntu/ 2>&1
-            fi
-            echo "2. Current apt configuration:"
-            apt-config dump
             handle_error "Failed to update package lists after $max_retries attempts" "apt_update"
         fi
         echo "Waiting before retry $retry_count..."
@@ -78,21 +53,14 @@ while [ $retry_count -lt $max_retries ]; do
     fi
 done
 
-# Install required packages for Python installation
-echo "Installing Python prerequisites..."
-sudo apt-get install -y software-properties-common || handle_error "Failed to install software-properties-common"
+# Install Python and required system packages
+echo "Installing Python and system dependencies..."
+sudo apt-get install -y python3-pip python3-venv python3-dev \
+    libgl1-mesa-glx libglib2.0-0 build-essential || handle_error "Failed to install system packages"
 
-# Add deadsnakes PPA for Python 3.11
-echo "Adding Python 3.11 repository..."
-sudo add-apt-repository -y ppa:deadsnakes/ppa || handle_error "Failed to add Python repository"
-
-# Install Python 3.11 and development packages
-echo "Installing Python 3.11 and dependencies..."
-sudo apt-get install -y python3.11 python3.11-venv python3.11-dev || handle_error "Failed to install Python"
-
-# Install required system libraries for background removal
-echo "Installing system dependencies for background removal..."
-sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 || handle_error "Failed to install system libraries"
+# Verify Python installation
+python3 --version || handle_error "Python installation failed"
+pip3 --version || handle_error "Pip installation failed"
 
 # Install Node.js 18.x if not installed or upgrade if older version
 echo "Checking Node.js installation..."
@@ -104,7 +72,7 @@ fi
 
 # Install PM2 globally if not installed
 echo "Installing PM2..."
- npm install -g pm2 || handle_error "Failed to install PM2"
+sudo npm install -g pm2 || handle_error "Failed to install PM2"
 
 # Set up project structure
 echo "Setting up project structure..."
@@ -113,9 +81,9 @@ PROJECT_ROOT=$(pwd)
 # Create necessary directories
 mkdir -p server/outputs server/logs dist
 
-# Create and activate virtual environment with Python 3.11
+# Create and activate virtual environment
 echo "Creating Python virtual environment..."
-python3.11 -m venv venv || handle_error "Failed to create virtual environment"
+python3 -m venv venv || handle_error "Failed to create virtual environment"
 source venv/bin/activate || handle_error "Failed to activate virtual environment"
 
 # Add project root to PYTHONPATH
