@@ -20,7 +20,6 @@ echo "Installing Python prerequisites..."
 # Add deadsnakes PPA for Python 3.11
 echo "Adding Python 3.11 repository..."
  add-apt-repository -y ppa:deadsnakes/ppa || handle_error "Failed to add Python repository"
- apt-get update
 
 # Install Python 3.11 and development packages
 echo "Installing Python 3.11 and dependencies..."
