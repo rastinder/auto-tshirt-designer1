@@ -6,12 +6,46 @@ echo "Deploying AI T-Shirt Generator Website and Server..."
 # Function to handle errors
 handle_error() {
     echo "Error: $1"
+    if [ "$2" = "apt_update" ]; then
+        echo "Diagnosing apt-get update issue..."
+        echo "1. Checking if apt is locked..."
+        if lsof /var/lib/apt/lists/lock >/dev/null 2>&1 || lsof /var/lib/dpkg/lock* >/dev/null 2>&1; then
+            echo "APT is locked. Trying to fix..."
+            sudo rm -f /var/lib/apt/lists/lock
+            sudo rm -f /var/lib/dpkg/lock*
+            sudo dpkg --configure -a
+        fi
+        echo "2. Testing internet connectivity..."
+        if ! ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+            echo "Network connectivity issue detected!"
+        fi
+        echo "3. Checking DNS resolution..."
+        if ! nslookup archive.ubuntu.com >/dev/null 2>&1; then
+            echo "DNS resolution issue detected!"
+        fi
+        echo "4. Trying to fix package lists..."
+        sudo rm -rf /var/lib/apt/lists/*
+        sudo mkdir -p /var/lib/apt/lists/partial
+    fi
     exit 1
 }
 
-# Update package lists
+# Update package lists with retry mechanism
 echo "Updating system packages..."
-sudo apt-get update || handle_error "Failed to update package lists"
+max_retries=3
+retry_count=0
+while [ $retry_count -lt $max_retries ]; do
+    if sudo apt-get update; then
+        break
+    else
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -eq $max_retries ]; then
+            handle_error "Failed to update package lists" "apt_update"
+        fi
+        echo "Retry $retry_count of $max_retries..."
+        sleep 5
+    fi
+done
 
 # Install required packages for Python installation
 echo "Installing Python prerequisites..."
