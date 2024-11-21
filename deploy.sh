@@ -35,14 +35,26 @@ echo "Updating system packages..."
 max_retries=3
 retry_count=0
 while [ $retry_count -lt $max_retries ]; do
-    if sudo apt-get update; then
+    echo "Attempt $((retry_count + 1)) of $max_retries to update package lists..."
+    if sudo apt-get update -y 2>&1 | tee /tmp/apt-update.log; then
         break
     else
         retry_count=$((retry_count + 1))
+        echo "Update failed. Checking error log:"
+        cat /tmp/apt-update.log
         if [ $retry_count -eq $max_retries ]; then
-            handle_error "Failed to update package lists" "apt_update"
+            echo "All retries failed. Running additional diagnostics..."
+            echo "1. Current sources list:"
+            cat /etc/apt/sources.list
+            echo "2. Additional sources:"
+            ls -l /etc/apt/sources.list.d/
+            echo "3. Testing specific repository access:"
+            curl -v http://archive.ubuntu.com/ubuntu/ 2>&1
+            echo "4. Current apt configuration:"
+            apt-config dump
+            handle_error "Failed to update package lists after $max_retries attempts" "apt_update"
         fi
-        echo "Retry $retry_count of $max_retries..."
+        echo "Waiting before retry $retry_count..."
         sleep 5
     fi
 done
